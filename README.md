@@ -1,6 +1,6 @@
 # Capítulo 1 — Fundamentos DDD + Arquitectura Hexagonal
 
-Primer capítulo del libro de aprendizaje "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`).
+Primer capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`).
 
 ## Índice
 
@@ -22,7 +22,7 @@ Primer capítulo del libro de aprendizaje "De cero a pro en arquitectura de micr
 
 ## 1. Introducción
 
-Este capítulo construye el primer microservicio de la tienda online: **`servicio-catalogo`** (gestión de productos). No es solo código que "funciona": es la referencia arquitectónica que copiaremos para el resto de microservicios del libro, así que cada decisión de diseño está explicada, no solo aplicada.
+Este capítulo construye el primer microservicio de la tienda online: **`servicio-catalogo`** (gestión de productos). No es solo código que "funciona": es la referencia arquitectónica que copiaremos para el resto de microservicios del tutorial, así que cada decisión de diseño está explicada, no solo aplicada.
 
 Al terminar este capítulo entenderás:
 

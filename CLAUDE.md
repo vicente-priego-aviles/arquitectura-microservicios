@@ -4,7 +4,7 @@ Este archivo guía a Claude Code (claude.ai/code) cuando trabaja con el código 
 
 ## Qué es este proyecto
 
-Monorepo de aprendizaje: una tienda online construida microservicio a microservicio con Spring Boot, DDD y Clean/Hexagonal Architecture, documentada como un libro donde **cada rama de Git es un capítulo**. El objetivo no es solo llegar a un producto final, sino dejar por el camino una guía didáctica de arquitectura de microservicios (DDD, observabilidad, Docker, Kubernetes, GitOps, GitHub Actions, tests, etc.).
+Monorepo de aprendizaje: una tienda online construida microservicio a microservicio con Spring Boot, DDD y Clean/Hexagonal Architecture, documentada como un tutorial donde **cada rama de Git es un capítulo**. El objetivo no es solo llegar a un producto final, sino dejar por el camino una guía didáctica de arquitectura de microservicios (DDD, observabilidad, Docker, Kubernetes, GitOps, GitHub Actions, tests, etc.).
 
 La rama `main` contiene **únicamente el índice general de capítulos** (este `CLAUDE.md` y el `README.md` con la tabla de ramas). No contiene código de ningún microservicio: el código vive en las ramas de capítulo.
 

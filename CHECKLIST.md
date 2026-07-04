@@ -1,6 +1,6 @@
 # Checklist tecnológico
 
-Estado de las tecnologías/temas cubiertos en el libro, capítulo a capítulo. Vive en la rama del último capítulo (no en `main`) y se actualiza en cada capítulo nuevo.
+Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo. Vive en la rama del último capítulo (no en `main`) y se actualiza en cada capítulo nuevo.
 
 ## Arquitectura / DDD
 - [x] Arquitectura Hexagonal (puertos de entrada/salida + adaptadores)
