@@ -37,6 +37,22 @@ infraestructura/
   adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java
 ```
 
+## Diagramas
+
+Fuentes editables en `docs/diagramas/` (formato `.excalidraw`, abrir en [excalidraw.com](https://excalidraw.com) o con la extensión de VS Code):
+
+- `docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw` — capas dominio/aplicación/infraestructura y dirección de las dependencias.
+- `docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw` — secuencia completa del caso de uso "Crear Producto".
+
+**Pendiente de tu parte**: exporta cada diagrama como PNG desde Excalidraw y guárdalo en `docs/images/` con este nombre exacto (mismo nombre que el `.excalidraw`, extensión `.png`):
+
+- `docs/images/capitulo-01-arquitectura-hexagonal.png`
+- `docs/images/capitulo-01-secuencia-crear-producto.png`
+
+![Arquitectura Hexagonal — servicio-catalogo](docs/images/capitulo-01-arquitectura-hexagonal.png)
+
+![Secuencia — Crear Producto](docs/images/capitulo-01-secuencia-crear-producto.png)
+
 ## Cómo probarlo
 
 ```bash
