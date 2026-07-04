@@ -4,6 +4,7 @@ import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.CrearProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.dto.salida.ProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarProductoPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.CrearProductoPuertoEntrada;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,15 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/productos")
+@RequiredArgsConstructor
 public class ProductoController {
 
 	private final CrearProductoPuertoEntrada crearProductoPuertoEntrada;
 	private final BuscarProductoPuertoEntrada buscarProductoPuertoEntrada;
-
-	public ProductoController(CrearProductoPuertoEntrada crearProductoPuertoEntrada, BuscarProductoPuertoEntrada buscarProductoPuertoEntrada) {
-		this.crearProductoPuertoEntrada = crearProductoPuertoEntrada;
-		this.buscarProductoPuertoEntrada = buscarProductoPuertoEntrada;
-	}
 
 	@PostMapping
 	public ResponseEntity<ProductoDTO> crear(@RequestBody CrearProductoDTO dto) {

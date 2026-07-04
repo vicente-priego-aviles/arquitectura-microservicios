@@ -14,6 +14,10 @@ Estado de las tecnologías/temas cubiertos en el libro, capítulo a capítulo. V
 - [x] Spring Data Neo4j
 - [ ] Migraciones/seed de datos
 
+## Herramientas de código
+- [x] MapStruct (mappers dominio↔DTO, dominio↔entidad)
+- [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`; deliberadamente no usado en el agregado `Producto` ni en los Value Objects, que son `record`)
+
 ## Comunicación entre servicios
 - [ ] Cliente REST / OpenFeign
 - [ ] Mensajería asíncrona (Kafka/RabbitMQ)

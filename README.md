@@ -236,12 +236,11 @@ public interface CrearProductoPuertoEntrada {
 ```java
 // aplicacion/servicio/CrearProductoServicio.java
 @Service
+@RequiredArgsConstructor
 public class CrearProductoServicio implements CrearProductoPuertoEntrada {
 
 	private final ProductoRepositorioPuertoSalida productoRepositorioPuertoSalida;
 	private final ProductoMapper productoMapper;
-
-	// constructor con inyección de dependencias...
 
 	@Override
 	public ProductoDTO crear(CrearProductoDTO dto) {
@@ -276,6 +275,8 @@ MapStruct genera automáticamente el mapeo cuando puede inferir las propiedades 
 
 `BuscarProductoServicio` sigue el mismo patrón y es quien lanza `ProductoNoEncontradoExcepcion` cuando el puerto de salida devuelve un `Optional` vacío.
 
+**Sobre `@RequiredArgsConstructor`**: `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti). Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano. Regla general: Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia), nunca para sustituir lógica de dominio.
+
 ---
 
 ## 7. La infraestructura de entrada: el adaptador REST
@@ -285,12 +286,11 @@ MapStruct genera automáticamente el mapeo cuando puede inferir las propiedades 
 ```java
 @RestController
 @RequestMapping("/api/productos")
+@RequiredArgsConstructor
 public class ProductoController {
 
 	private final CrearProductoPuertoEntrada crearProductoPuertoEntrada;
 	private final BuscarProductoPuertoEntrada buscarProductoPuertoEntrada;
-
-	// constructor...
 
 	@PostMapping
 	public ResponseEntity<ProductoDTO> crear(@RequestBody CrearProductoDTO dto) {
@@ -337,6 +337,9 @@ Según la documentación oficial: *"cuando se incluye el módulo `spring-boot-do
 ```java
 // infraestructura/adaptador/salida/persistencia/entidad/ProductoEntidad.java
 @Node("Producto")
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProductoEntidad {
 
 	@Id
@@ -345,12 +348,10 @@ public class ProductoEntidad {
 	private String descripcion;
 	private BigDecimal precio;
 	private Instant fechaCreacion;
-
-	// constructor vacío (lo exige Spring Data), constructor completo y getters
 }
 ```
 
-`@Node("Producto")` le dice a Spring Data Neo4j que cada instancia es un nodo con la etiqueta `:Producto` en el grafo. `@Id` marca `id` como su identificador — y como nosotros mismos generamos el `ProductoId` (un UUID) en el dominio antes de persistir, **no** usamos `@GeneratedValue`: el id ya viene fijado por el agregado. Si guardas un producto con id `bb8001ab-...`, en el grafo queda literalmente:
+`@Node("Producto")` le dice a Spring Data Neo4j que cada instancia es un nodo con la etiqueta `:Producto` en el grafo. `@Id` marca `id` como su identificador — y como nosotros mismos generamos el `ProductoId` (un UUID) en el dominio antes de persistir, **no** usamos `@GeneratedValue`: el id ya viene fijado por el agregado. A diferencia del agregado `Producto`, esta clase **sí** es un buen sitio para Lombok: es una clase de mapeo pura, con getters JavaBean y sin invariantes que proteger, así que `@Getter`/`@NoArgsConstructor`/`@AllArgsConstructor` sustituyen boilerplate sin esconder ninguna regla de negocio (Spring Data necesita el constructor vacío para instanciar el objeto antes de rellenar sus campos). Si guardas un producto con id `bb8001ab-...`, en el grafo queda literalmente:
 
 ```cypher
 CREATE (:Producto {
@@ -377,12 +378,11 @@ Solo con extender `Neo4jRepository<ProductoEntidad, String>` (entidad + tipo del
 ```java
 // infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java
 @Component
+@RequiredArgsConstructor
 public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSalida {
 
 	private final ProductoRepositorioNeo4j productoRepositorioNeo4j;
 	private final ProductoEntidadMapper productoEntidadMapper;
-
-	// constructor...
 
 	@Override
 	public Producto guardar(Producto producto) {

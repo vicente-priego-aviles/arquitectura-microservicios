@@ -6,18 +6,15 @@ import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarProductoP
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
 import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoExcepcion;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class BuscarProductoServicio implements BuscarProductoPuertoEntrada {
 
 	private final ProductoRepositorioPuertoSalida productoRepositorioPuertoSalida;
 	private final ProductoMapper productoMapper;
-
-	public BuscarProductoServicio(ProductoRepositorioPuertoSalida productoRepositorioPuertoSalida, ProductoMapper productoMapper) {
-		this.productoRepositorioPuertoSalida = productoRepositorioPuertoSalida;
-		this.productoMapper = productoMapper;
-	}
 
 	@Override
 	public ProductoDTO buscarPorId(String id) {
