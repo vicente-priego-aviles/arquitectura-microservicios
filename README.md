@@ -1,6 +1,6 @@
 # arquitectura-microservicios
 
-De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un libro. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
+De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un tutorial. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
 
 ## Índice de capítulos
 
