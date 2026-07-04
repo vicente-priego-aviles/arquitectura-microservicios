@@ -101,8 +101,10 @@ Un Agregado es el límite de consistencia de un conjunto de objetos: se guarda y
 
 ```java
 // dominio/modelo/agregado/Producto.java
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Producto {
 
+	@EqualsAndHashCode.Include
 	private final ProductoId id;
 	private String nombre;
 	private String descripcion;
@@ -134,25 +136,13 @@ public class Producto {
 	}
 
 	// getters de solo lectura: id(), nombre(), descripcion(), precio(), fechaCreacion()
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (!(o instanceof Producto producto)) return false;
-		return Objects.equals(id, producto.id);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(id);
-	}
 }
 ```
 
 Tres decisiones deliberadas aquí:
 
-1. **Constructor privado + factories estáticas nombradas** (`crear`, `reconstruir`): un agregado nuevo (creado por el negocio, con validación completa) y un agregado reconstruido (leído desde la base de datos, donde ya confiamos en que es válido) son conceptos distintos, aunque produzcan el mismo tipo de objeto. Nombrar la diferencia evita confundirlas.
-2. **`equals`/`hashCode` basados solo en `id`**: dos productos con el mismo id son el mismo producto, aunque su nombre o precio hayan cambiado — es la semántica de identidad de un agregado, distinta de la semántica de valor de un Value Object.
+1. **Constructor privado + factories estáticas nombradas** (`crear`, `reconstruir`): un agregado nuevo (creado por el negocio, con validación completa) y un agregado reconstruido (leído desde la base de datos, donde ya confiamos en que es válido) son conceptos distintos, aunque produzcan el mismo tipo de objeto. Nombrar la diferencia evita confundirlas. Esto sigue escrito a mano — Lombok no puede generar un constructor que valide invariantes de negocio.
+2. **`equals`/`hashCode` basados solo en `id`**: dos productos con el mismo id son el mismo producto, aunque su nombre o precio hayan cambiado — es la semántica de identidad de un agregado, distinta de la semántica de valor de un Value Object. A diferencia del constructor, esto **sí** lo genera Lombok: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en la clase + `@EqualsAndHashCode.Include` solo en `id` reproduce exactamente esta semántica, sin comparar por `nombre`/`precio`/`fechaCreacion`. La regla para decidir no es "¿es dominio o infraestructura?", sino "¿la anotación puede saltarse una invariante de negocio?" — un constructor generado sí podría (permitiría construir un `Producto` sin pasar por `validarNombre`); un `equals`/`hashCode` generado no, así que aquí no hay ningún riesgo.
 3. **Sin getters estilo JavaBean** (`getNombre()`), sino accesores estilo record (`nombre()`): esto es intencional y tiene una consecuencia directa en cómo escribimos los mappers (lo verás en la [sección 8](#8-acceso-a-la-base-de-datos-con-spring-data-neo4j)).
 
 ---

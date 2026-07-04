@@ -2,12 +2,15 @@ package com.javacadabra.tienda.catalogo.dominio.modelo.agregado;
 
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
+import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
 import java.util.Objects;
 
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Producto {
 
+	@EqualsAndHashCode.Include
 	private final ProductoId id;
 	private String nombre;
 	private String descripcion;
@@ -56,17 +59,5 @@ public class Producto {
 
 	public Instant fechaCreacion() {
 		return fechaCreacion;
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (!(o instanceof Producto producto)) return false;
-		return Objects.equals(id, producto.id);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(id);
 	}
 }

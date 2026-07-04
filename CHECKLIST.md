@@ -16,7 +16,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 ## Herramientas de código
 - [x] MapStruct (mappers dominio↔DTO, dominio↔entidad)
-- [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`; deliberadamente no usado en el agregado `Producto` ni en los Value Objects, que son `record`)
+- [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en el agregado `Producto` —solo por `id`—; el constructor de `Producto` sigue a mano porque valida invariantes, y en los Value Objects, que son `record`, tampoco aplica)
 
 ## Comunicación entre servicios
 - [ ] Cliente REST / OpenFeign
