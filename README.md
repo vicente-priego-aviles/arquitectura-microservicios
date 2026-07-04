@@ -1,2 +1,13 @@
 # arquitectura-microservicios
-De cero a pro en arquitectura de microservicios con Spring Boot
+
+De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un libro. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
+
+## Índice de capítulos
+
+| # | Rama | Título | Microservicio | Estado |
+|---|------|--------|----------------|--------|
+| 1 | [`capitulo-01-fundamentos-ddd-hexagonal`](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | Fundamentos DDD + Arquitectura Hexagonal | servicio-catalogo | 🚧 en curso |
+
+Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+
+Ver [CLAUDE.md](CLAUDE.md) para la guía completa de convenciones (idioma, arquitectura, modelo de ramas).
