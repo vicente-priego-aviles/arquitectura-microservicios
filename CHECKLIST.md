@@ -40,6 +40,8 @@ Estado de las tecnologías/temas cubiertos en el libro, capítulo a capítulo. V
 - [x] Test de integración con Testcontainers (Neo4j)
 - [ ] ArchUnit (reglas de capas)
 - [ ] Test de contrato REST
+- [ ] Instancio (rellenar objetos sin invariantes: `ProductoEntidad`, DTOs. **No** para el agregado `Producto` ni para `ProductoId`/`Precio` —tienen validación en el constructor y rellenarlos por reflexión se saltaría esas invariantes—; ahí mejor generar los valores primitivos con Instancio/DataFaker y pasarlos a `Producto.crear(...)`)
+- [ ] DataFaker (datos realistas — nombre/descripción/precio de producto — para alimentar `Producto.crear(...)`; sustituto activo de Java Faker, sin releases desde 2020)
 
 ## Seguridad
 - [ ] Autenticación/Autorización (OAuth2/Keycloak/JWT)
