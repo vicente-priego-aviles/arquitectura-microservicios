@@ -7,7 +7,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 - [x] Agregado + Value Object (`Producto`, `Precio`, `ProductoId`)
 - [ ] Entidades internas al agregado (distintas del propio agregado)
 - [ ] Eventos de dominio
-- [ ] Relaciones de grafo (Categoría, recomendaciones de producto)
+- [x] Relaciones de grafo (Categoría, recomendaciones de producto)
 - [ ] jMolecules (anotaciones DDD)
 
 ## Persistencia

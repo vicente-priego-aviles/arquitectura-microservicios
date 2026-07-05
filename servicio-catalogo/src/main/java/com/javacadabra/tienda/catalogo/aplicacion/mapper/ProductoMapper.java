@@ -16,6 +16,7 @@ public interface ProductoMapper {
 				producto.id().valor(),
 				producto.nombre(),
 				producto.descripcion(),
-				producto.precio().valor());
+				producto.precio().valor(),
+				producto.categoriaId().valor());
 	}
 }

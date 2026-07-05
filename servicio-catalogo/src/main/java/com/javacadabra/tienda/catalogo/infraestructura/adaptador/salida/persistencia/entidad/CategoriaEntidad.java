@@ -5,24 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
-import org.springframework.data.neo4j.core.schema.Relationship;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-
-@Node("Producto")
+@Node("Categoria")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductoEntidad {
+public class CategoriaEntidad {
 
 	@Id
 	private String id;
 	private String nombre;
-	private String descripcion;
-	private BigDecimal precio;
-	private Instant fechaCreacion;
-
-	@Relationship(type = "PERTENECE_A", direction = Relationship.Direction.OUTGOING)
-	private CategoriaEntidad categoria;
 }
