@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Skills de herramienta (Claude Code / agentes) ###
+# .claude/skills sí se versiona cuando el skill es contenido del propio
+# capítulo (p. ej. excalidraw-diagram para los diagramas); .agents/ y el
+# lockfile son el catálogo genérico de skills del entorno del desarrollador,
+# no contenido del proyecto.
+.agents/
+skills-lock.json
