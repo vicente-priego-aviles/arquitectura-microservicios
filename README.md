@@ -15,7 +15,8 @@ Segundo capítulo del tutorial "De cero a pro en arquitectura de microservicios 
 9. [Diagramas](#9-diagramas)
 10. [Cómo probarlo de extremo a extremo](#10-cómo-probarlo-de-extremo-a-extremo)
 11. [Qué se deja para el capítulo 3](#11-qué-se-deja-para-el-capítulo-3)
-12. [Referencias](#12-referencias)
+12. [Registro de archivos del capítulo](#12-registro-de-archivos-del-capítulo)
+13. [Referencias](#13-referencias)
 
 ---
 
@@ -306,7 +307,92 @@ A propósito, este capítulo **no** cubre:
 - Eventos de dominio — tiene sentido cuando haya más de un microservicio reaccionando a cambios de `Producto`/`Categoria`.
 - Persistencia políglota, patrón Saga, OpenAPI/Swagger, Vaadin, Prometheus/Grafana — siguen en el roadmap de `CHECKLIST.md`, sin fecha concreta todavía.
 
-## 12. Referencias
+---
+
+## 12. Registro de archivos del capítulo
+
+Tabla de control de los archivos que forman el contenido de este capítulo: código del microservicio, diagramas y configuración de build. No incluye archivos internos de desarrollo (`CLAUDE.md`, `CHECKLIST.md`) ni scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes`), que no aportan valor al lector del tutorial.
+
+**Leyenda:** 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
+
+### Documentación y diagramas
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`docs/diagramas/capitulo-02-modelo-grafo-categoria.excalidraw`](docs/diagramas/capitulo-02-modelo-grafo-categoria.excalidraw) | Fuente editable del diagrama de nodos `Producto`/`Categoria` y las relaciones `PERTENECE_A`/`RELACIONADO_CON`. | --- |
+| 🌱 | [`docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw`](docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Recomendar Producto". | --- |
+| 🌱 | [`docs/images/capitulo-02-modelo-grafo-categoria.png`](docs/images/capitulo-02-modelo-grafo-categoria.png) | Render PNG del modelo de grafo, embebido en la [sección 9](#9-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-02-secuencia-recomendar-producto.png`](docs/images/capitulo-02-secuencia-recomendar-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 9](#9-diagramas). | --- |
+
+### Dominio
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`Categoria.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Categoria.java) | Nuevo agregado raíz: encapsula el nombre de una categoría de productos. | --- |
+| 🌱 | [`CategoriaId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/CategoriaId.java) | Value Object que garantiza que el identificador de la categoría es siempre un UUID válido. | --- |
+| 🌱 | [`CategoriaNoEncontradaExcepcion.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/CategoriaNoEncontradaExcepcion.java) | Excepción de dominio lanzada cuando no existe una categoría con el id solicitado. | --- |
+| ✏️ | [`Producto.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Producto.java) | Agregado raíz del producto. | Añade el campo obligatorio `categoriaId` (validado en `crear`) y el método `validarRecomendacion`, que impide que un producto se recomiende a sí mismo. |
+
+### Aplicación
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`CrearCategoriaDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/CrearCategoriaDTO.java) | DTO de entrada con los datos necesarios para crear una categoría. | --- |
+| ✏️ | [`CrearProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/CrearProductoDTO.java) | DTO de entrada para crear un producto. | Añade el campo `categoriaId`. |
+| 🌱 | [`RecomendarProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/RecomendarProductoDTO.java) | DTO de entrada con el id del producto recomendado. | --- |
+| 🌱 | [`CategoriaDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/salida/CategoriaDTO.java) | DTO de salida que expone una categoría sin filtrar el modelo de dominio. | --- |
+| ✏️ | [`ProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/salida/ProductoDTO.java) | DTO de salida de un producto. | Añade el campo `categoriaId`. |
+| 🌱 | [`CategoriaMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/mapper/CategoriaMapper.java) | Mapper MapStruct que convierte el agregado `Categoria` a `CategoriaDTO`. | --- |
+| ✏️ | [`ProductoMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/mapper/ProductoMapper.java) | Mapper MapStruct de `Producto` a `ProductoDTO`. | Incluye `categoriaId().valor()` en el DTO de salida. |
+| 🌱 | [`BuscarCategoriaPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/BuscarCategoriaPuertoEntrada.java) | Puerto de entrada del caso de uso "buscar categoría por id". | --- |
+| 🌱 | [`BuscarProductosPorCategoriaPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/BuscarProductosPorCategoriaPuertoEntrada.java) | Puerto de entrada del caso de uso "listar productos de una categoría". | --- |
+| 🌱 | [`BuscarProductosRecomendadosPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/BuscarProductosRecomendadosPuertoEntrada.java) | Puerto de entrada del caso de uso "listar productos recomendados". | --- |
+| 🌱 | [`CrearCategoriaPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/CrearCategoriaPuertoEntrada.java) | Puerto de entrada del caso de uso "crear categoría". | --- |
+| 🌱 | [`RecomendarProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/RecomendarProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "recomendar producto". | --- |
+| 🌱 | [`CategoriaRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/CategoriaRepositorioPuertoSalida.java) | Puerto de salida: lo que la aplicación necesita para persistir y leer categorías. | --- |
+| ✏️ | [`ProductoRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/ProductoRepositorioPuertoSalida.java) | Puerto de salida de productos. | Añade `buscarPorCategoria`, `buscarRecomendados` y `agregarRecomendacion`. |
+| 🌱 | [`BuscarCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarCategoriaServicio.java) | Implementa el caso de uso de búsqueda de categoría; lanza `CategoriaNoEncontradaExcepcion` si no existe. | --- |
+| 🌱 | [`BuscarProductosPorCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductosPorCategoriaServicio.java) | Implementa el caso de uso de listado de productos por categoría. | --- |
+| 🌱 | [`BuscarProductosRecomendadosServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductosRecomendadosServicio.java) | Implementa el caso de uso de listado de productos recomendados. | --- |
+| 🌱 | [`CrearCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearCategoriaServicio.java) | Implementa el caso de uso de creación de categoría. | --- |
+| ✏️ | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Implementa el caso de uso de creación de producto. | Ahora valida que la categoría exista (`CategoriaRepositorioPuertoSalida`) antes de crear el producto; lanza `CategoriaNoEncontradaExcepcion` si no. |
+| 🌱 | [`RecomendarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicio.java) | Implementa el caso de uso de recomendación de producto, delegando en `Producto.validarRecomendacion`. | --- |
+
+### Infraestructura de entrada (REST)
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`CategoriaController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/CategoriaController.java) | Adaptador REST de categorías: `POST /api/categorias`, `GET /api/categorias/{id}`. | --- |
+| ✏️ | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` que traduce excepciones de dominio a códigos HTTP. | Añade el manejador de `CategoriaNoEncontradaExcepcion` → 404. |
+| ✏️ | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador REST de productos. | Añade `GET /api/productos?categoriaId=`, `POST /api/productos/{id}/recomendaciones` y `GET /api/productos/{id}/recomendaciones`. |
+
+### Infraestructura de salida (persistencia Neo4j)
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`CategoriaRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/CategoriaRepositorioAdaptador.java) | Adaptador que implementa el puerto de salida de categorías usando `CategoriaRepositorioNeo4j`. | --- |
+| ✏️ | [`ProductoRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java) | Adaptador de persistencia de productos. | Resuelve la `CategoriaEntidad` real (no un stub) antes de guardar, para no sobreescribir sus propiedades ([sección 5](#5-lección-de-spring-data-neo4j-1-el-gotcha-del-stub)); añade `buscarPorCategoria`, `buscarRecomendados` y `agregarRecomendacion`. |
+| 🌱 | [`CategoriaEntidad.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/entidad/CategoriaEntidad.java) | Entidad de persistencia (`@Node`) que representa `Categoria` como nodo del grafo Neo4j. | --- |
+| ✏️ | [`ProductoEntidad.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/entidad/ProductoEntidad.java) | Entidad de persistencia de producto. | Añade el campo `categoria` con `@Relationship(type = "PERTENECE_A", direction = OUTGOING)`. |
+| 🌱 | [`CategoriaEntidadMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/mapper/CategoriaEntidadMapper.java) | Mapper MapStruct entre `CategoriaEntidad` y el agregado `Categoria`. | --- |
+| ✏️ | [`ProductoEntidadMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/mapper/ProductoEntidadMapper.java) | Mapper MapStruct entre `ProductoEntidad` y `Producto`. | `aEntidad` recibe ahora la `CategoriaEntidad` a enlazar; `aDominio` reconstruye `categoriaId` a partir de la relación. |
+| 🌱 | [`CategoriaRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/CategoriaRepositorioNeo4j.java) | Repositorio Spring Data (`Neo4jRepository`) con las operaciones CRUD básicas de categoría. | --- |
+| ✏️ | [`ProductoRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/ProductoRepositorioNeo4j.java) | Repositorio Spring Data de producto. | Añade `buscarPorCategoriaId`, `buscarRecomendados` y `agregarRecomendacion` con Cypher explícito (`@Query`), ver [sección 6](#6-lección-de-spring-data-neo4j-2-cuándo-no-usar-relationship). |
+
+### Tests
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`CrearProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicioTest.java) | Test de servicio (Mockito) que verifica la validación de categoría al crear un producto, sin Spring ni Docker. | --- |
+| 🌱 | [`RecomendarProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicioTest.java) | Test de servicio (Mockito) de la orquestación de la recomendación de producto. | --- |
+| 🌱 | [`CategoriaTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/CategoriaTest.java) | Tests unitarios de las invariantes del agregado `Categoria`. | --- |
+| ✏️ | [`ProductoTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/ProductoTest.java) | Tests unitarios de las invariantes del agregado `Producto`. | Añade casos para `categoriaId` obligatorio y para `validarRecomendacion` (un producto no puede recomendarse a sí mismo). |
+| 🌱 | [`CategoriaRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/CategoriaRepositorioAdaptadorIntegrationTest.java) | Test de integración con Neo4j real (Testcontainers) del adaptador de categoría. | --- |
+| ✏️ | [`ProductoRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/ProductoRepositorioAdaptadorIntegrationTest.java) | Test de integración con Neo4j real del adaptador de producto. | Añade el caso `guardarDosProductosEnLaMismaCategoriaNoSobrescribeElNombreDeLaCategoria`, que reproduce el "gotcha" del stub ([sección 5](#5-lección-de-spring-data-neo4j-1-el-gotcha-del-stub)). |
+
+---
+
+## 13. Referencias
 
 - [Spring Data Neo4j — Custom Queries (Appendix)](https://docs.spring.io/spring-data/neo4j/reference/appendix/custom-queries.html)
 - [Spring Data Neo4j — FAQ (transacciones de escritura por defecto)](https://docs.spring.io/spring-data/neo4j/reference/faq.html)
