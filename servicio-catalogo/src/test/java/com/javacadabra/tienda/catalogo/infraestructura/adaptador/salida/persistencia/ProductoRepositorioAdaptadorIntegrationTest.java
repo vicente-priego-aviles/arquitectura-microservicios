@@ -5,14 +5,13 @@ import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.adaptador.ProductoRepositorioAdaptador;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.mapper.ProductoEntidadMapperImpl;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.repositorio.ProductoRepositorioNeo4j;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.neo4j.test.autoconfigure.DataNeo4jTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.Neo4jContainer;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
@@ -25,18 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import({ProductoRepositorioAdaptador.class, ProductoEntidadMapperImpl.class})
 class ProductoRepositorioAdaptadorIntegrationTest {
 
+	@Container
 	@ServiceConnection
 	static final Neo4jContainer<?> neo4jContainer = new Neo4jContainer<>("neo4j:latest");
-
-	@BeforeAll
-	static void iniciar() {
-		neo4jContainer.start();
-	}
-
-	@AfterAll
-	static void detener() {
-		neo4jContainer.stop();
-	}
 
 	@Autowired
 	private ProductoRepositorioAdaptador productoRepositorioAdaptador;

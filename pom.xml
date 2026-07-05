@@ -85,13 +85,13 @@
 					<configuration>
 						<annotationProcessorPaths>
 							<path>
-								<groupId>org.projectlombok</groupId>
-								<artifactId>lombok</artifactId>
-							</path>
-							<path>
 								<groupId>org.mapstruct</groupId>
 								<artifactId>mapstruct-processor</artifactId>
 								<version>${mapstruct.version}</version>
+							</path>
+							<path>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
 							</path>
 							<path>
 								<groupId>org.projectlombok</groupId>

@@ -3,10 +3,14 @@ package com.javacadabra.tienda.catalogo.dominio.modelo.agregado;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import java.time.Instant;
 import java.util.Objects;
 
+@Getter
+@Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Producto {
 
@@ -39,25 +43,5 @@ public class Producto {
 		if (nombre == null || nombre.isBlank()) {
 			throw new IllegalArgumentException("El nombre del producto no puede estar vacío");
 		}
-	}
-
-	public ProductoId id() {
-		return id;
-	}
-
-	public String nombre() {
-		return nombre;
-	}
-
-	public String descripcion() {
-		return descripcion;
-	}
-
-	public Precio precio() {
-		return precio;
-	}
-
-	public Instant fechaCreacion() {
-		return fechaCreacion;
 	}
 }

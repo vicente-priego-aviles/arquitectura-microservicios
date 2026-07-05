@@ -47,6 +47,17 @@ Esta convención es compartida con el proyecto hermano `sistema-reservas-viaje` 
 
 Regla clave: el `dominio` no conoce nada de frameworks ni de persistencia; los puertos de salida son la única forma en que `aplicacion` habla con `infraestructura`.
 
+## Convención de Lombok en agregados
+
+Aplica a **todo agregado raíz** (`dominio.modelo.agregado`) de cualquier microservicio del monorepo, presente o futuro. La pregunta que decide si una anotación de Lombok es segura no es "¿es dominio o infraestructura?", sino **"¿la anotación puede generar código que se salte una invariante de negocio?"**:
+
+- **Constructor**: siempre escrito a mano — `private` + factories estáticas nombradas (`crear` para alta con validación completa, `reconstruir` para rehidratar desde persistencia sin repetir esa validación). Nunca `@AllArgsConstructor`/`@NoArgsConstructor` en el agregado: aunque el constructor privado en sí mismo no valide nada hoy, mañana esa validación puede trasladarse ahí, y una anotación no puede alojar lógica.
+- **Getters de solo lectura**: sí, vía `@Getter` + `@Accessors(fluent = true)` en la clase. Un getter no puede saltarse ninguna invariante. `@Accessors(fluent = true)` es obligatorio para mantener el estilo de accesor sin prefijo `get` (`id()`, `nombre()`, no `getId()`), consistente con los Value Objects (que son `record`) y sin exigir ningún cambio en los mappers MapStruct que ya llaman a esos accesores.
+- **`equals`/`hashCode`**: sí, vía `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en la clase + `@EqualsAndHashCode.Include` solo en el campo de identidad (el id del agregado). Un agregado se compara por identidad, nunca por sus demás campos.
+- **Nunca `@Data` ni `@Value`**: `@Value` en concreto genera un constructor **público** con todos los campos, lo que permitiría construir el agregado sin pasar por `crear`/`reconstruir` — exactamente la invariante que este patrón protege. Además fuerza todos los campos a `final`, lo que puede chocar con campos mutables del agregado (p. ej. un precio que se actualiza con un método de dominio).
+
+Fue el caso aplicado en `servicio-catalogo` sobre `Producto` (ver su `README.md` de capítulo, sección 5, para el razonamiento completo con ejemplos de código) — aplícalo igual en cualquier agregado nuevo de capítulos futuros.
+
 ## Estructura del monorepo
 
 El `pom.xml` raíz es el **parent multi-módulo** (`packaging=pom`): centraliza versiones de Java/Spring Cloud, `dependencyManagement` y la configuración común de plugins (`spring-boot-maven-plugin`, `maven-compiler-plugin` con anotation processors de Lombok/MapStruct). Cada microservicio es un módulo hijo con su propio `pom.xml`, su propio `compose.yaml` si necesita infraestructura local, y su propio paquete base `com.javacadabra.tienda.<contexto>`.

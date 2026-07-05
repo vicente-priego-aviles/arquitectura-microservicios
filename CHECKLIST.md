@@ -11,19 +11,32 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 - [ ] jMolecules (anotaciones DDD)
 
 ## Persistencia
-- [x] Spring Data Neo4j
+- [x] Spring Data Neo4j (`servicio-catalogo` — grafo)
 - [ ] Migraciones/seed de datos
+- [ ] Persistencia políglota: cada microservicio futuro puede usar el motor más adecuado a su modelo (p. ej. relacional con Spring Data JPA/PostgreSQL, documental con MongoDB, caché con Redis) — se concreta motor a motor según el microservicio
 
 ## Herramientas de código
 - [x] MapStruct (mappers dominio↔DTO, dominio↔entidad)
-- [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en el agregado `Producto` —solo por `id`—; el constructor de `Producto` sigue a mano porque valida invariantes, y en los Value Objects, que son `record`, tampoco aplica)
+- [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`, y en el agregado `Producto`: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` —solo por `id`— y `@Getter @Accessors(fluent = true)` para los getters de solo lectura, que no cambia la firma que ya usaban los mappers; el constructor de `Producto` sigue a mano porque valida invariantes, y en los Value Objects, que son `record`, tampoco aplica. Regla general para cualquier agregado futuro en `CLAUDE.md`)
 
 ## Comunicación entre servicios
 - [ ] Cliente REST / OpenFeign
 - [ ] Mensajería asíncrona (Kafka/RabbitMQ)
 
+## Consistencia entre microservicios
+- [ ] Patrón Saga (orquestación o coreografía, a decidir cuando haya al menos dos microservicios con transacción compartida — candidato natural: Pedidos + Pagos + Inventario)
+- [ ] Métodos de compensación por cada paso de la Saga (deshacer lo ya confirmado si un paso posterior falla)
+
+## Documentación de API
+- [ ] OpenAPI (Swagger) — especificación + UI interactiva (`springdoc-openapi`) para los endpoints REST de cada microservicio
+
+## Frontend
+- [ ] Vaadin (última versión estable en el momento de implementarlo) — UI web para consumir los microservicios
+
 ## Observabilidad
 - [ ] Actuator + Micrometer
+- [ ] Prometheus (scraping de métricas vía `micrometer-registry-prometheus`)
+- [ ] Grafana (dashboards sobre las métricas de Prometheus)
 - [ ] Trazas distribuidas (OpenTelemetry/Zipkin)
 - [ ] Logs estructurados centralizados
 
@@ -45,6 +58,12 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 ## Seguridad
 - [ ] Autenticación/Autorización (OAuth2/Keycloak/JWT)
+
+## Imágenes pendientes
+
+Capturas de pantalla de interfaces web que el usuario debe adjuntar manualmente (los diagramas `.excalidraw` no cuentan aquí, esos se renderizan directamente a PNG). Carpeta destino: `docs/images/`. Formato: `.png`.
+
+- [ ] `docs/images/capitulo-01-neo4j-browser.png` — Neo4j Browser (`http://localhost:7474`) tras conectar y ejecutar `MATCH (p:Producto) RETURN p;` con al menos un producto creado, mostrando el grafo resultante. Referenciada en la sección 8.5 del `README.md`.
 
 ## Microservicios candidatos
 - [x] Catálogo/Productos (`servicio-catalogo`)

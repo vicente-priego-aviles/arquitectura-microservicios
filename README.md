@@ -95,12 +95,22 @@ public record ProductoId(String valor) {
 
 Dos factories estáticas, dos intenciones distintas: `generar()` para cuando el dominio crea una identidad nueva, `de(String)` para cuando reconstruimos una identidad que ya existía (por ejemplo, al leerla de la base de datos o de una URL).
 
+### Entidad (interna al agregado)
+
+Antes de llegar al Agregado hace falta un concepto intermedio: la Entidad. Una Entidad, como un Value Object, puede tener campos mutables — pero a diferencia de un Value Object, **se compara por identidad, no por valor**: dos entidades con los mismos atributos pero id distinto son objetos distintos, y una misma entidad sigue siendo "la misma" aunque cambien sus atributos. En esto se parece a un Agregado (que, de hecho, es en sí mismo una Entidad: la que hace de raíz).
+
+La diferencia entre una Entidad interna y el Agregado raíz no es de naturaleza sino de **rol dentro del límite de consistencia**: la raíz es el único punto de entrada — se guarda, se recupera y se referencia desde fuera del agregado como una unidad —, mientras que una Entidad interna vive *dentro* de ese límite, sin repositorio propio ni ciclo de vida independiente: no se puede cargar ni guardar suelta, solo a través de la raíz que la contiene. Siguiendo la convención de este proyecto (tabla de la sección 4 de `CLAUDE.md`), una Entidad interna iría en `dominio.modelo.entidad`, junto a (pero separada de) `dominio.modelo.agregado`.
+
+`Producto` en este capítulo **no tiene ninguna Entidad interna** — solo Value Objects (`Precio`, `ProductoId`) además de sí mismo como raíz. Es una decisión deliberada de alcance, no una omisión: forzar una entidad interna artificial (p. ej. "reseñas" o "variantes de producto") solo para ilustrar el concepto no aportaría nada al caso de uso actual. Aparecerá con un ejemplo de código real en un capítulo futuro, cuando un agregado la necesite de forma natural (candidato: variantes o líneas dentro de un agregado `Pedido`) — ver `CHECKLIST.md`, sección "Arquitectura / DDD".
+
 ### Agregado
 
 Un Agregado es el límite de consistencia de un conjunto de objetos: se guarda y se recupera como una unidad, y solo se accede a él a través de su raíz (aquí, `Producto`). Las invariantes del negocio (las reglas que siempre deben cumplirse) viven dentro del agregado, no en un service externo:
 
 ```java
 // dominio/modelo/agregado/Producto.java
+@Getter
+@Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Producto {
 
@@ -134,16 +144,15 @@ public class Producto {
 			throw new IllegalArgumentException("El nombre del producto no puede estar vacío");
 		}
 	}
-
-	// getters de solo lectura: id(), nombre(), descripcion(), precio(), fechaCreacion()
 }
 ```
 
-Tres decisiones deliberadas aquí:
+Cuatro decisiones deliberadas aquí:
 
-1. **Constructor privado + factories estáticas nombradas** (`crear`, `reconstruir`): un agregado nuevo (creado por el negocio, con validación completa) y un agregado reconstruido (leído desde la base de datos, donde ya confiamos en que es válido) son conceptos distintos, aunque produzcan el mismo tipo de objeto. Nombrar la diferencia evita confundirlas. Esto sigue escrito a mano — Lombok no puede generar un constructor que valide invariantes de negocio.
+1. **Constructor privado + factories estáticas nombradas** (`crear`, `reconstruir`): un agregado nuevo (creado por el negocio, con validación completa) y un agregado reconstruido (leído desde la base de datos, donde ya confiamos en que es válido) son conceptos distintos, aunque produzcan el mismo tipo de objeto. Nombrar la diferencia evita confundirlas. Esto sigue escrito a mano — Lombok no puede generar un constructor que valide invariantes de negocio. Nótese que el constructor privado **en sí mismo** no valida nada (la validación vive en `crear`), así que técnicamente `@AllArgsConstructor(access = AccessLevel.PRIVATE)` sería seguro aquí — se descarta igualmente porque, si en el futuro la validación se traslada al propio constructor (un refactor habitual en DDD), un constructor generado por Lombok no podría alojarla.
 2. **`equals`/`hashCode` basados solo en `id`**: dos productos con el mismo id son el mismo producto, aunque su nombre o precio hayan cambiado — es la semántica de identidad de un agregado, distinta de la semántica de valor de un Value Object. A diferencia del constructor, esto **sí** lo genera Lombok: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en la clase + `@EqualsAndHashCode.Include` solo en `id` reproduce exactamente esta semántica, sin comparar por `nombre`/`precio`/`fechaCreacion`. La regla para decidir no es "¿es dominio o infraestructura?", sino "¿la anotación puede saltarse una invariante de negocio?" — un constructor generado sí podría (permitiría construir un `Producto` sin pasar por `validarNombre`); un `equals`/`hashCode` generado no, así que aquí no hay ningún riesgo.
-3. **Sin getters estilo JavaBean** (`getNombre()`), sino accesores estilo record (`nombre()`): esto es intencional y tiene una consecuencia directa en cómo escribimos los mappers (lo verás en la [sección 8](#8-acceso-a-la-base-de-datos-con-spring-data-neo4j)).
+3. **Getters de solo lectura vía `@Getter` + `@Accessors(fluent = true)`**: un getter no puede saltarse ninguna invariante (solo lee un campo), así que aquí Lombok tampoco tiene contrapartida. `@Accessors(fluent = true)` es la pieza clave: sin ella, `@Getter` generaría accesores estilo JavaBean (`getId()`, `getNombre()`...); con ella, genera exactamente `id()`, `nombre()`, `descripcion()`, `precio()`, `fechaCreacion()` — el mismo nombre y firma que los getters manuales que sustituye, sin el prefijo `get`.
+4. **Sin getters estilo JavaBean** (`getNombre()`), sino accesores estilo record (`nombre()`): esto es intencional y consistente con los Value Objects (`Precio`, `ProductoId`, que son `record` y ya usan ese estilo). Como `@Accessors(fluent = true)` reproduce exactamente esos nombres, **los mappers no necesitan ningún cambio**: `ProductoMapper.aDTO(...)` y `ProductoEntidadMapper.aEntidad(...)` (sección 8.4) siguen llamando a `producto.id()`, `producto.nombre()`, `producto.precio()` tal cual — antes eran métodos escritos a mano, ahora los genera Lombok, pero la firma que ve el resto del código no cambia. Sigue habiendo una consecuencia práctica en cómo se escriben esos mappers (MapStruct no puede inferir automáticamente accesores sin prefijo `get`/`is`), lo verás en la [sección 8](#8-acceso-a-la-base-de-datos-con-spring-data-neo4j).
 
 ---
 
@@ -265,7 +274,7 @@ MapStruct genera automáticamente el mapeo cuando puede inferir las propiedades 
 
 `BuscarProductoServicio` sigue el mismo patrón y es quien lanza `ProductoNoEncontradoExcepcion` cuando el puerto de salida devuelve un `Optional` vacío.
 
-**Sobre `@RequiredArgsConstructor`**: `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti). Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano. Regla general: Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia), nunca para sustituir lógica de dominio.
+**Sobre `@RequiredArgsConstructor`**: `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti). Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano. Regla general (válida para `Producto` y para cualquier agregado futuro del proyecto): Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia, getters de solo lectura) y para lo que no pueda saltarse una invariante de negocio (`equals`/`hashCode` por id); nunca para el constructor que valida esas invariantes.
 
 ---
 
@@ -389,22 +398,52 @@ public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSa
 
 Este es el `implements` que "invierte" la dependencia de la que hablamos en la sección 3: la interfaz (`ProductoRepositorioPuertoSalida`) vive en `aplicacion`, pero quien la implementa vive en `infraestructura` y es el único punto del proyecto que sabe que la persistencia es Neo4j. `ProductoEntidadMapper` hace la traducción en ambas direcciones, y — igual que `ProductoMapper` — usa métodos `default` porque `Producto` no tiene un constructor público ni getters JavaBean; en la dirección entidad→dominio, usa la factory `Producto.reconstruir(...)` en vez de `Producto.crear(...)`, precisamente para no re-disparar la generación de un nuevo id ni de una nueva fecha de creación.
 
+Nota sobre Lombok y este mapper: `producto.id()`, `producto.nombre()`, `producto.precio()` (línea de `aEntidad`) llaman a los getters fluidos que genera `@Getter @Accessors(fluent = true)` en `Producto` (sección 5, punto 3) — antes eran métodos escritos a mano con la misma firma exacta. El mapper no cambió ni una línea al introducir Lombok ahí: como el nombre y la forma del método son idénticos, esta clase (y `ProductoMapper` en la sección 6) son completamente ajenas a si el getter está escrito a mano o generado.
+
 ### 8.5. Acceder a los datos manualmente (fuera del código)
 
-A veces quieres mirar el grafo con tus propios ojos, no solo a través de un test. `compose.yaml` solo publica el puerto Bolt (`7687`), y sin mapeo fijo Docker le asigna un puerto de host aleatorio:
+A veces quieres mirar el grafo con tus propios ojos, no solo a través de un test. `compose.yaml` publica los dos puertos con mapeo fijo (a diferencia de Testcontainers, aquí nos interesa un puerto estable porque vamos a teclear la URL a mano):
 
-```bash
-# Con el servicio arrancado (spring-boot:run), averigua el puerto real
-docker compose -f servicio-catalogo/compose.yaml ps
-
-# Conéctate con cypher-shell dentro del propio contenedor (no hace falta instalar nada)
-docker compose -f servicio-catalogo/compose.yaml exec neo4j cypher-shell -u neo4j -p notverysecret
-
-# Dentro de cypher-shell:
-MATCH (p:Producto) RETURN p;
+```yaml
+services:
+  neo4j:
+    image: 'neo4j:latest'
+    environment:
+      - 'NEO4J_AUTH=neo4j/notverysecret'
+    ports:
+      - '7687:7687'  # Bolt — protocolo binario que usa el driver (Spring Data, cypher-shell)
+      - '7474:7474'  # HTTP — sirve la interfaz web de Neo4j Browser
 ```
 
-Si prefieres la interfaz web de **Neo4j Browser**, tendrías que exponer también el puerto HTTP (`7474`) en `compose.yaml` — no lo hicimos en este capítulo para mantenerlo mínimo, pero es un cambio de una línea (`- '7474:7474'`) si te resulta más cómodo para explorar el grafo visualmente.
+**Opción A — `cypher-shell`, la consola interactiva que trae la propia imagen de Neo4j:**
+
+`cypher-shell` es un cliente de línea de comandos que habla Bolt (igual que el driver de Spring Data) y ya viene instalado dentro del contenedor — no hace falta instalar nada en tu máquina.
+
+1. Con el servicio arrancado (`spring-boot:run` levanta `compose.yaml` automáticamente), abre la consola dentro del contenedor:
+
+   ```bash
+   docker compose -f servicio-catalogo/compose.yaml exec neo4j cypher-shell -u neo4j -p notverysecret
+   ```
+
+2. Si la conexión es correcta, el prompt cambia a `neo4j@neo4j>` — ya estás dentro, escribiendo Cypher directamente.
+3. Cada sentencia se ejecuta al pulsar Enter y **debe terminar en `;`**:
+
+   ```
+   neo4j@neo4j> MATCH (p:Producto) RETURN p;
+   ```
+
+   La salida es una tabla en texto plano con los nodos encontrados (y sus propiedades `id`, `nombre`, `descripcion`, `precio`, `fechaCreacion`).
+4. Comandos útiles dentro de la sesión: `:help` (ayuda), `:clear` (limpiar pantalla), `:exit` o `Ctrl+D` (salir y volver a la shell del host).
+
+**Opción B — Neo4j Browser, la interfaz web que trae el propio contenedor:**
+
+1. Con el servicio arrancado (`spring-boot:run` levanta `compose.yaml` automáticamente), abre [http://localhost:7474](http://localhost:7474).
+2. En la pantalla de conexión: *Connect URL* → `bolt://localhost:7687`, *Username* → `neo4j`, *Password* → `notverysecret` (las mismas credenciales de `NEO4J_AUTH` en `compose.yaml`).
+3. Una vez dentro, la barra superior acepta Cypher directamente. Prueba `MATCH (p:Producto) RETURN p;` y pulsa el botón de ejecutar (▶) — Neo4j Browser dibuja los nodos `:Producto` como un grafo interactivo, mucho más visual que la salida en texto de `cypher-shell`.
+
+![Neo4j Browser mostrando nodos Producto](docs/images/capitulo-01-neo4j-browser.png)
+
+*(Captura pendiente — ver `CHECKLIST.md`, sección "Imágenes pendientes")*
 
 ---
 
@@ -433,18 +472,9 @@ Nuestro test de integración:
 @Import({ProductoRepositorioAdaptador.class, ProductoEntidadMapperImpl.class})
 class ProductoRepositorioAdaptadorIntegrationTest {
 
+	@Container
 	@ServiceConnection
 	static final Neo4jContainer<?> neo4jContainer = new Neo4jContainer<>("neo4j:latest");
-
-	@BeforeAll
-	static void iniciar() {
-		neo4jContainer.start();
-	}
-
-	@AfterAll
-	static void detener() {
-		neo4jContainer.stop();
-	}
 
 	@Autowired
 	private ProductoRepositorioAdaptador productoRepositorioAdaptador;
@@ -463,7 +493,7 @@ class ProductoRepositorioAdaptadorIntegrationTest {
 
 Pieza por pieza, apoyándonos en la documentación oficial de Spring Boot:
 
-- **`@Container` como campo `static`**: cuando declaras el contenedor como campo estático (como hacemos aquí, en vez de un `@Bean`), *"Spring Boot puede determinar automáticamente el nombre de la imagen Docker... esto funciona para contenedores tipados como `Neo4jContainer`"* — no hace falta decirle a Spring qué tipo de servicio es, lo infiere del tipo Java.
+- **`@Container` como campo `static`**: es la anotación de la extensión JUnit 5 de Testcontainers (activada por `@Testcontainers` en la clase) que le dice "arranca y para este contenedor tú solo" — por eso no hay ningún `@BeforeAll`/`@AfterAll` llamando a `start()`/`stop()` a mano. Al ser un campo `static`, el contenedor se comparte entre todos los métodos de test de la clase: arranca una vez antes del primero y se para una vez después del último. Además, cuando declaras el contenedor como campo estático (en vez de un `@Bean`), *"Spring Boot puede determinar automáticamente el nombre de la imagen Docker... esto funciona para contenedores tipados como `Neo4jContainer`"* — no hace falta decirle a Spring qué tipo de servicio es, lo infiere del tipo Java.
 - **`@ServiceConnection`**: *"permite que los detalles de conexión de un servicio en contenedor se generen automáticamente anotando el campo del contenedor en la clase de test"*. Es exactamente el mismo mecanismo que vimos en desarrollo con `spring-boot-docker-compose` (sección 8.1) — por eso no hay ningún `@DynamicPropertySource` manual registrando `spring.neo4j.uri`: Spring Boot lo hace por nosotros en cuanto ve el campo anotado.
 - **`@DataNeo4jTest`**: es un *test slice* — *"escanea las clases `@Node` y configura los repositorios de Spring Data Neo4j"*, sin levantar toda la aplicación (controladores, etc.). Además, *"los tests de Data Neo4j son transaccionales y hacen rollback al final de cada test por defecto"*, así que cada método de test empieza con el grafo limpio sin que tengamos que borrar nada manualmente.
 - **`@Import({...})`**: `@DataNeo4jTest` no escanea `@Component`/`@Service` por defecto (solo lo estrictamente relacionado con Neo4j), así que importamos explícitamente el adaptador y el mapper generado por MapStruct para poder inyectarlos en el test.
@@ -494,6 +524,20 @@ Fuentes editables en `docs/diagramas/` (formato `.excalidraw`, abrir en [excalid
 # Levantar el servicio (arranca Neo4j vía docker-compose automáticamente)
 ./mvnw -pl servicio-catalogo spring-boot:run
 ```
+
+Antes de usarlos, vale la pena entender qué hace cada pieza de estos dos comandos — no son solo "ejecuta tests" / "arranca la app", tienen algunas decisiones del proyecto detrás.
+
+### ¿Qué hace `./mvnw -pl servicio-catalogo test`?
+
+- **`./mvnw`** es el *Maven Wrapper*: un script versionado en el repo (`.mvn/wrapper/`) que descarga y usa la versión exacta de Maven configurada para el proyecto, sin depender de que tengas Maven instalado en el sistema.
+- **`-pl servicio-catalogo`** (`--projects`) le dice a Maven qué módulo del reactor construir. Como el `pom.xml` raíz es `packaging=pom` (un *parent* multi-módulo sin código propio, sección 4), hay que apuntar explícitamente al módulo que sí lo tiene. Si `servicio-catalogo` dependiera de otro módulo del mismo reactor, haría falta añadir `-am` (`--also-make`) para construir esas dependencias primero — con un único módulo, no hace falta todavía.
+- **`test`** es una *fase* del ciclo de vida estándar de Maven (no un goal suelto): antes de ejecutar los tests, Maven encadena automáticamente las fases anteriores (`compile`, `test-compile`), y en la fase `test` invoca el `maven-surefire-plugin`, que busca y ejecuta todas las clases que cumplen su convención de nombres por defecto (`**/*Test.java`, entre otras). Esto incluye tanto `ProductoTest`/`PrecioTest` (unitarios puros, sin Spring) como `ProductoRepositorioAdaptadorIntegrationTest` (con Testcontainers) — en este proyecto **no** separamos unitarios e integración en fases distintas (`test` vs `verify` con `maven-failsafe-plugin`, que es la convención habitual para tests `*IT.java`); con un único módulo y una sola clase de integración no aporta valor todavía, pero es un candidato a revisar si el número de tests de integración crece en capítulos futuros.
+
+### ¿Qué hace `./mvnw -pl servicio-catalogo spring-boot:run`?
+
+- `./mvnw` y `-pl servicio-catalogo` significan lo mismo que arriba.
+- **`spring-boot:run`** ya no es una fase del ciclo de vida, sino un *goal* concreto del `spring-boot-maven-plugin` (configurado en `pluginManagement` del `pom.xml` raíz). Compila el proyecto si hace falta y arranca la aplicación **en el mismo proceso de Maven**, usando el classpath directamente — a diferencia de empaquetar un jar (`package`) y ejecutarlo con `java -jar`, es el camino rápido para desarrollo local. El proceso queda en primer plano mostrando logs hasta que lo paras con `Ctrl+C`.
+- El arranque automático de Neo4j **no es cosa de este goal**, sino un efecto colateral de tener `spring-boot-docker-compose` en las dependencias del módulo (sección 8.1): al iniciar la `SpringApplication`, ese módulo busca `servicio-catalogo/compose.yaml`, ejecuta `docker compose up -d` por ti, y crea automáticamente el bean de conexión (`Neo4jConnectionDetails`) apuntando al puerto real que Docker asignó — sin ninguna propiedad `spring.neo4j.uri` manual. Al parar la app con `Ctrl+C`, ejecuta `docker compose stop` (para el contenedor, no lo borra: los datos persisten entre arranques).
 
 Con el servicio arrancado en `http://localhost:8080`:
 
