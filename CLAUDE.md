@@ -20,6 +20,18 @@ La rama `main` contiene **únicamente el índice general de capítulos** (este `
 - El `CHECKLIST.md` (tecnologías cubiertas/pendientes) vive en la rama del último capítulo, no en `main`; cada capítulo lo actualiza como parte de su commit.
 - Cada rama de capítulo lleva su propio `README.md` en la raíz explicando qué se construyó, las decisiones de diseño tomadas y cómo probarlo.
 
+## Convención: registro de archivos por capítulo
+
+El `README.md` de cada rama de capítulo incluye, como **penúltima sección** (justo antes de "Referencias"), una sección **"Registro de archivos del capítulo"** que documenta qué archivos de contenido se crearon, actualizaron o eliminaron en ese capítulo. El índice de la propia rama se actualiza en consecuencia (la sección de referencias pasa a ser la última, un número por delante).
+
+- **Alcance — solo contenido para el lector**: código del microservicio, diagramas (`docs/diagramas`, `docs/images`) y configuración de build específica del capítulo (`pom.xml`, `compose.yaml`, `application.properties`). **Se excluyen**: el propio `README.md` (autorreferencial), `CLAUDE.md` y `CHECKLIST.md` (documentación interna de desarrollo, no dirigida al lector del tutorial), y el scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes` genéricos).
+- **Leyenda de iconos**: 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado.
+- **Organización**: subtablas agrupadas por capa arquitectónica (Documentación/diagramas, Build y configuración, Dominio, Aplicación, Infraestructura de entrada, Infraestructura de salida, Tests — ajustar los grupos a lo que aporte cada capítulo), no una única tabla plana.
+- **Columnas de cada tabla**: icono de estado sin título de columna y centrado (para dejar más espacio al resto) · `Archivo` (enlace relativo a la raíz del repo) · `Descripción funcional` (qué hace ese archivo, una línea) · `Descripción del cambio` (solo se rellena en archivos ✏️ actualizados; en 🌱/🗑️ se deja `---` centrado).
+- **Cambios masivos de bajo valor** (p. ej. añadir Javadoc a todos los archivos existentes): no listar cada archivo afectado en la tabla — resumirlo en una frase aparte después de la tabla.
+
+Ver `README.md` de este capítulo, sección 13, como referencia de formato aplicado.
+
 ## Idioma y lenguaje ubicuo
 
 - Todo el contenido que se genera (documentación, commits, comentarios, nombres del modelo de dominio) debe estar **en español**.

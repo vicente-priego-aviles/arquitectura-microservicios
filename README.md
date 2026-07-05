@@ -16,7 +16,8 @@ Primer capítulo del tutorial "De cero a pro en arquitectura de microservicios c
 10. [Diagramas](#10-diagramas)
 11. [Cómo probarlo de extremo a extremo](#11-cómo-probarlo-de-extremo-a-extremo)
 12. [Qué se deja para el capítulo 2](#12-qué-se-deja-para-el-capítulo-2)
-13. [Referencias](#13-referencias)
+13. [Registro de archivos del capítulo](#13-registro-de-archivos-del-capítulo)
+14. [Referencias](#14-referencias)
 
 ---
 
@@ -569,7 +570,80 @@ Consulta `CHECKLIST.md` para el resto del roadmap tecnológico.
 
 ---
 
-## 13. Referencias
+## 13. Registro de archivos del capítulo
+
+Tabla de control de los archivos que forman el contenido de este capítulo: código del microservicio, diagramas y configuración de build. No incluye archivos internos de desarrollo (`CLAUDE.md`, `CHECKLIST.md`) ni scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes`), que no aportan valor al lector del tutorial.
+
+**Leyenda:** 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
+
+### Documentación y diagramas
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw`](docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw) | Fuente editable del diagrama de capas (dominio/aplicación/infraestructura) y dirección de las dependencias. | --- |
+| 🌱 | [`docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw`](docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Crear Producto". | --- |
+| 🌱 | [`docs/images/capitulo-01-arquitectura-hexagonal.png`](docs/images/capitulo-01-arquitectura-hexagonal.png) | Render PNG del diagrama de arquitectura hexagonal, embebido en la [sección 10](#10-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-01-secuencia-crear-producto.png`](docs/images/capitulo-01-secuencia-crear-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 10](#10-diagramas). | --- |
+
+### Build y configuración
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`pom.xml`](pom.xml) | Parent Maven multi-módulo: centraliza versiones (Spring Cloud, MapStruct, Testcontainers) y configuración de plugins compartida. | --- |
+| 🌱 | [`servicio-catalogo/pom.xml`](servicio-catalogo/pom.xml) | POM del módulo `servicio-catalogo`: declara Spring Web, Spring Data Neo4j, MapStruct y dependencias de test. | --- |
+| 🌱 | [`servicio-catalogo/compose.yaml`](servicio-catalogo/compose.yaml) | Levanta un contenedor Neo4j local (puertos Bolt `7687` y HTTP `7474`) vía `spring-boot-docker-compose`. | --- |
+| 🌱 | [`servicio-catalogo/src/main/resources/application.properties`](servicio-catalogo/src/main/resources/application.properties) | Configuración de la aplicación, vacía a propósito: la conexión a Neo4j la resuelve `spring-boot-docker-compose`. | --- |
+| 🌱 | [`ServicioCatalogoApplication.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/ServicioCatalogoApplication.java) | Clase de arranque de Spring Boot del microservicio. | --- |
+
+### Dominio
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`Producto.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Producto.java) | Agregado raíz: encapsula las invariantes de negocio del producto tras las factories `crear`/`reconstruir`. | --- |
+| 🌱 | [`Precio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/Precio.java) | Value Object inmutable que valida que el precio no sea nulo ni negativo. | --- |
+| 🌱 | [`ProductoId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/ProductoId.java) | Value Object que garantiza que el identificador del producto es siempre un UUID válido. | --- |
+| 🌱 | [`ProductoNoEncontradoExcepcion.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/ProductoNoEncontradoExcepcion.java) | Excepción de dominio lanzada cuando no existe un producto con el id solicitado. | --- |
+
+### Aplicación
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`CrearProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/CrearProductoDTO.java) | DTO de entrada con los datos necesarios para crear un producto. | --- |
+| 🌱 | [`ProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/salida/ProductoDTO.java) | DTO de salida que expone un producto sin filtrar el modelo de dominio. | --- |
+| 🌱 | [`ProductoMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/mapper/ProductoMapper.java) | Mapper MapStruct que convierte el agregado `Producto` en `ProductoDTO`. | --- |
+| 🌱 | [`BuscarProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/BuscarProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "buscar producto por id". | --- |
+| 🌱 | [`CrearProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/CrearProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "crear producto". | --- |
+| 🌱 | [`ProductoRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/ProductoRepositorioPuertoSalida.java) | Puerto de salida: lo que la aplicación necesita para persistir y leer productos. | --- |
+| 🌱 | [`BuscarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductoServicio.java) | Implementa el caso de uso de búsqueda; lanza `ProductoNoEncontradoExcepcion` si no existe. | --- |
+| 🌱 | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Implementa el caso de uso de creación orquestando dominio, persistencia y mapeo a DTO. | --- |
+
+### Infraestructura de entrada (REST)
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` que traduce excepciones de dominio a códigos HTTP (404, 400). | --- |
+| 🌱 | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador REST: traduce peticiones HTTP a llamadas a los puertos de entrada. | --- |
+
+### Infraestructura de salida (persistencia Neo4j)
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`ProductoRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java) | Adaptador que implementa el puerto de salida usando `ProductoRepositorioNeo4j`. | --- |
+| 🌱 | [`ProductoEntidad.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/entidad/ProductoEntidad.java) | Entidad de persistencia (`@Node`) que representa `Producto` como nodo del grafo Neo4j. | --- |
+| 🌱 | [`ProductoEntidadMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/mapper/ProductoEntidadMapper.java) | Mapper MapStruct entre `ProductoEntidad` y el agregado `Producto` (usa `reconstruir` al leer). | --- |
+| 🌱 | [`ProductoRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/ProductoRepositorioNeo4j.java) | Repositorio Spring Data (`Neo4jRepository`) con las operaciones CRUD básicas. | --- |
+
+### Tests
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`ProductoTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/ProductoTest.java) | Tests unitarios de las invariantes del agregado `Producto`. | --- |
+| 🌱 | [`PrecioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/PrecioTest.java) | Tests unitarios de las invariantes del Value Object `Precio`. | --- |
+| 🌱 | [`ProductoRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/ProductoRepositorioAdaptadorIntegrationTest.java) | Test de integración con un Neo4j real vía Testcontainers. | --- |
+
+---
+
+## 14. Referencias
 
 - [Spring Boot Reference — NoSQL Data Access (Neo4j)](https://docs.spring.io/spring-boot/4.1.0/reference/data/nosql.html#data.nosql.neo4j)
 - [Spring Boot Reference — Docker Compose Support](https://docs.spring.io/spring-boot/4.1.0/reference/features/dev-services.html#features.dev-services.docker-compose)
