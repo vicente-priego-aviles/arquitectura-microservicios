@@ -30,7 +30,7 @@
       "updated": 1751100000000,
       "link": null,
       "locked": false,
-      "text": "Capítulo 2 — Modelo de grafo: Categoría y recomendaciones",
+      "text": "Modelo de grafo: Categoría y recomendaciones",
       "fontSize": 28,
       "fontFamily": 5,
       "textAlign": "center",
@@ -436,7 +436,7 @@
     {
       "id": "arrow-camiseta-ropa-text",
       "type": "text",
-      "x": 175,
+      "x": 85,
       "y": 320,
       "width": 110,
       "height": 25,
@@ -514,7 +514,7 @@
     {
       "id": "arrow-pantalon-ropa-text",
       "type": "text",
-      "x": 320,
+      "x": 380,
       "y": 320,
       "width": 110,
       "height": 25,
@@ -592,7 +592,7 @@
     {
       "id": "arrow-telefono-electronica-text",
       "type": "text",
-      "x": 780,
+      "x": 790,
       "y": 320,
       "width": 110,
       "height": 25,
