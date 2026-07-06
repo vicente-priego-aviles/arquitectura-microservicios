@@ -38,12 +38,32 @@ Metadatos usados para este proyecto:
 | Artifact | `arquitectura-microservicios` |
 | Java | 25 |
 | Packaging | Jar |
+| Config format | **YAML** (no Properties) |
 
 ![Formulario de Spring Initializr con esta configuración](docs/images/capitulo-00-spring-initializr.png)
 
 *(Captura pendiente)*
 
 Importante: Initializr genera un proyecto de **un solo módulo**. La estructura multi-módulo actual (`pom.xml` raíz como parent `packaging=pom` + `servicio-catalogo` como módulo hijo) **no** la genera Initializr — es un refactor manual posterior, hecho ya como parte del capítulo 1 al convertir el repositorio en el monorepo del tutorial.
+
+**YAML en vez de Properties**: Initializr deja elegir el formato del fichero de configuración que genera (`application.yml` o `application.properties`); este proyecto usa YAML en todos los microservicios, presentes y futuros (documentado como convención en `CLAUDE.md`). La razón práctica: las propiedades de Spring Boot están muy anidadas por prefijo (`spring.neo4j.authentication.username`, `spring.datasource.hikari.maximum-pool-size`...), y YAML expresa esa jerarquía sin repetir el prefijo en cada línea:
+
+```yaml
+# application.yml
+spring:
+  neo4j:
+    authentication:
+      username: neo4j
+      password: secret
+```
+
+```properties
+# el mismo contenido en application.properties
+spring.neo4j.authentication.username=neo4j
+spring.neo4j.authentication.password=secret
+```
+
+Con pocas propiedades la diferencia es cosmética, pero en cuanto un microservicio necesita varios bloques anidados (perfiles, múltiples fuentes de datos, `management.endpoints...`) YAML evita repetir el mismo prefijo larguísimo en cada línea. La desventaja habitual de YAML —la indentación es significativa, un espacio de más o de menos rompe el fichero— se acepta como coste asumible frente a la legibilidad ganada.
 
 ## 3. Las dependencias elegidas — y cuáles sobraban
 
@@ -139,7 +159,7 @@ Un segundo ejemplo en el mismo bloque, más sutil: `spring-boot-maven-plugin` se
 Para generar un esqueleto equivalente al que dio origen a este proyecto:
 
 1. Abre [start.spring.io](https://start.spring.io/).
-2. Rellena el formulario con los valores de la sección 2 (Project: Maven, Language: Java, Spring Boot: 4.1.0, Group: `com.javacadabra`, Artifact: `arquitectura-microservicios`, Java: 25, Packaging: Jar).
+2. Rellena el formulario con los valores de la sección 2 (Project: Maven, Language: Java, Spring Boot: 4.1.0, Group: `com.javacadabra`, Artifact: `arquitectura-microservicios`, Java: 25, Packaging: Jar, Config format: YAML).
 3. Añade las dependencias marcadas como "Initializr" en la tabla de la sección 3: Spring Web, Spring Data Neo4j, Docker Compose Support, Resilience4J, Lombok, Testcontainers.
 4. Pulsa "Generate", descarga el `.zip` y descomprímelo.
 5. Añade a mano en el `pom.xml` generado: la dependencia `mapstruct` (con su versión), `mapstruct-processor` y `lombok-mapstruct-binding` en `annotationProcessorPaths` del `maven-compiler-plugin` (sección 7) — ninguna de las tres viene en el catálogo de Initializr.
