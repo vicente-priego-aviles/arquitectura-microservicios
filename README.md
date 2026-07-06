@@ -42,8 +42,6 @@ Metadatos usados para este proyecto:
 
 ![Formulario de Spring Initializr con esta configuración](docs/images/capitulo-00/spring-initializr.png)
 
-*(Captura pendiente)*
-
 Importante: Initializr genera un proyecto de **un solo módulo**. La estructura multi-módulo actual (`pom.xml` raíz como parent `packaging=pom` + `servicio-catalogo` como módulo hijo) **no** la genera Initializr — es un refactor manual posterior, hecho ya como parte del capítulo 1 al convertir el repositorio en el monorepo del tutorial.
 
 **YAML en vez de Properties**: Initializr deja elegir el formato del fichero de configuración que genera (`application.yml` o `application.properties`); este proyecto usa YAML en todos los microservicios, presentes y futuros (documentado como convención en `CLAUDE.md`). La razón práctica: las propiedades de Spring Boot están muy anidadas por prefijo (`spring.neo4j.authentication.username`, `spring.datasource.hikari.maximum-pool-size`...), y YAML expresa esa jerarquía sin repetir el prefijo en cada línea:
@@ -167,7 +165,11 @@ Para generar un esqueleto equivalente al que dio origen a este proyecto:
 
 ## 9. Registro de archivos del capítulo
 
-Este capítulo es puramente documental: no añade código ni diagramas todavía, solo este `README.md` (autorreferencial, no se lista) y una captura de pantalla pendiente de añadir (sección 2). No hay tabla de archivos hasta que se incorpore esa captura.
+Este capítulo es puramente documental: no añade código, solo este `README.md` (autorreferencial, no se lista) y una captura de pantalla.
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`docs/images/capitulo-00/spring-initializr.png`](docs/images/capitulo-00/spring-initializr.png) | Captura del formulario de Spring Initializr con la configuración de este capítulo (metadatos + dependencias), embebida en la [sección 2](#2-spring-initializr-qué-genera-y-qué-se-eligió). | --- |
 
 ## 10. Referencias
 
