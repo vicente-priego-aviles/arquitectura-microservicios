@@ -100,9 +100,11 @@ Dos factories estáticas, dos intenciones distintas: `generar()` para cuando el 
 
 Antes de llegar al Agregado hace falta un concepto intermedio: la Entidad (Entity). Una Entidad, como un Objeto de Valor, puede tener campos mutables — pero a diferencia de un Objeto de Valor, **se compara por identidad, no por valor**: dos entidades con los mismos atributos pero id distinto son objetos distintos, y una misma entidad sigue siendo "la misma" aunque cambien sus atributos. En esto se parece a un Agregado (que, de hecho, es en sí mismo una Entidad: la que hace de raíz).
 
-La diferencia entre una Entidad interna y el Agregado raíz no es de naturaleza sino de **rol dentro del límite de consistencia**: la raíz es el único punto de entrada — se guarda, se recupera y se referencia desde fuera del agregado como una unidad —, mientras que una Entidad interna vive *dentro* de ese límite, sin repositorio propio ni ciclo de vida independiente: no se puede cargar ni guardar suelta, solo a través de la raíz que la contiene. Siguiendo la convención de este proyecto (tabla de la sección 4 de `CLAUDE.md`), una Entidad interna iría en `dominio.modelo.entidad`, junto a (pero separada de) `dominio.modelo.agregado`.
+La diferencia entre una Entidad interna y el Agregado raíz no es de naturaleza sino de **rol dentro del límite de consistencia** (consistency boundary): la raíz es el único punto de entrada — se guarda, se recupera y se referencia desde fuera del agregado como una unidad —, mientras que una Entidad interna vive *dentro* de ese límite, sin repositorio propio ni ciclo de vida independiente: no se puede cargar ni guardar suelta, solo a través de la raíz que la contiene. Siguiendo la convención de paquetes de este proyecto, una Entidad interna iría en `dominio.modelo.entidad`, junto a (pero separada de) `dominio.modelo.agregado`.
 
-`Producto` en este capítulo **no tiene ninguna Entidad interna** — solo Objetos de Valor (`Precio`, `ProductoId`) además de sí mismo como raíz. Es una decisión deliberada de alcance, no una omisión: forzar una entidad interna artificial (p. ej. "reseñas" o "variantes de producto") solo para ilustrar el concepto no aportaría nada al caso de uso actual. Aparecerá con un ejemplo de código real en un capítulo futuro, cuando un agregado la necesite de forma natural (candidato: variantes o líneas dentro de un agregado `Pedido`) — ver `CHECKLIST.md`, sección "Arquitectura / DDD".
+> El "límite de consistencia" es el alcance de las invariantes que un Agregado garantiza de forma atómica (en una misma transacción) — no confundir con el **Bounded Context** (límite de un modelo de dominio completo, un concepto de diseño *estratégico* y de mayor escala que el diseño *táctico* del que habla esta sección; se introducirá más adelante, cuando el tutorial tenga varios microservicios).
+
+`Producto` en este capítulo **no tiene ninguna Entidad interna** — solo Objetos de Valor (`Precio`, `ProductoId`) además de sí mismo como raíz. Es una decisión deliberada de alcance, no una omisión: forzar una entidad interna artificial (p. ej. "reseñas" o "variantes de producto") solo para ilustrar el concepto no aportaría nada al caso de uso actual. Aparecerá con un ejemplo de código real en un capítulo futuro, cuando un agregado la necesite de forma natural (candidato: variantes o líneas dentro de un agregado `Pedido`).
 
 ### Agregado (Aggregate)
 
@@ -444,7 +446,7 @@ services:
 
 ![Neo4j Browser mostrando nodos Producto](docs/images/capitulo-01-neo4j-browser.png)
 
-*(Captura pendiente — ver `CHECKLIST.md`, sección "Imágenes pendientes")*
+*(Captura pendiente)*
 
 ---
 
@@ -566,8 +568,6 @@ A propósito, este capítulo **no** cubre:
 - Consultas Cypher explícitas (`@Query`) — no las necesitamos hasta que haya relaciones que recorrer.
 - Resiliencia (`spring-cloud-starter-circuitbreaker-resilience4j` ya está en el `pom.xml`, pero sin usar todavía) — tiene sentido cuando haya más de un microservicio llamándose entre sí.
 
-Consulta `CHECKLIST.md` para el resto del roadmap tecnológico.
-
 ---
 
 ## 13. Registro de archivos del capítulo
@@ -650,5 +650,3 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 - [Spring Boot Reference — Testcontainers en tests](https://docs.spring.io/spring-boot/4.1.0/reference/testing/testcontainers.html)
 - [Testcontainers for Java — módulo Neo4j](https://java.testcontainers.org/modules/databases/neo4j/)
 - [Testcontainers for Java — Ryuk / limpieza de recursos](https://java.testcontainers.org/features/configuration/)
-
-Ver también [CLAUDE.md](CLAUDE.md) para la convención arquitectónica completa y el modelo de ramas del proyecto, y [CHECKLIST.md](CHECKLIST.md) para el estado de tecnologías cubiertas.
