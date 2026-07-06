@@ -7,7 +7,7 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | # | Rama | Título | Microservicio | Estado |
 |---|------|--------|----------------|--------|
 | 0 | [`capitulo-00-configuracion-inicial-spring-initializr`](../../tree/capitulo-00-configuracion-inicial-spring-initializr) | Configuración inicial: Spring Initializr, Lombok, MapStruct | — | ✅ |
-| 1 | [`capitulo-01-fundamentos-ddd-hexagonal`](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | Fundamentos DDD + Arquitectura Hexagonal | servicio-catalogo | 🚧 en curso |
+| 1 | [`capitulo-01-fundamentos-ddd-hexagonal`](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | Fundamentos DDD + Arquitectura Hexagonal | servicio-catalogo | ✅ |
 
 Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
