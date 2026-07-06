@@ -40,7 +40,7 @@ Metadatos usados para este proyecto:
 | Packaging | Jar |
 | Config format | **YAML** (no Properties) |
 
-![Formulario de Spring Initializr con esta configuración](docs/images/capitulo-00-spring-initializr.png)
+![Formulario de Spring Initializr con esta configuración](docs/images/capitulo-00/spring-initializr.png)
 
 *(Captura pendiente)*
 
