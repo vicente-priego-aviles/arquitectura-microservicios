@@ -328,7 +328,7 @@ spring:
       password: "secret"
 ```
 
-En este capítulo no fijamos esas propiedades a mano en `application.properties` — y es a propósito. Cuando ejecutas `./mvnw -pl servicio-catalogo spring-boot:run`, `spring-boot-docker-compose` (que ya está en el `pom.xml`) detecta `compose.yaml`, levanta un contenedor Neo4j y **crea automáticamente el bean de conexión** (`Neo4jConnectionDetails`) apuntando al puerto real que Docker asignó — no hace falta escribir ni una propiedad `spring.neo4j.uri`. Es el mismo mecanismo de "service connection" que usamos en los tests con Testcontainers (sección 9.2): en desarrollo lo activa Docker Compose, en tests lo activa Testcontainers.
+En este capítulo no fijamos esas propiedades a mano en `application.yml` — y es a propósito. Cuando ejecutas `./mvnw -pl servicio-catalogo spring-boot:run`, `spring-boot-docker-compose` (que ya está en el `pom.xml`) detecta `compose.yaml`, levanta un contenedor Neo4j y **crea automáticamente el bean de conexión** (`Neo4jConnectionDetails`) apuntando al puerto real que Docker asignó — no hace falta escribir ni una propiedad `spring.neo4j.uri`. Es el mismo mecanismo de "service connection" que usamos en los tests con Testcontainers (sección 9.2): en desarrollo lo activa Docker Compose, en tests lo activa Testcontainers.
 
 Según la documentación oficial: *"cuando se incluye el módulo `spring-boot-docker-compose`, Spring Boot busca ficheros `compose.yml`, ejecuta `docker compose up`, crea los beans de conexión para los contenedores soportados y ejecuta `docker compose stop` al apagar la aplicación"* — es decir, ni siquiera tienes que acordarte de pararlo.
 
@@ -592,7 +592,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`pom.xml`](pom.xml) | Parent Maven multi-módulo: centraliza versiones (Spring Cloud, MapStruct, Testcontainers) y configuración de plugins compartida. | --- |
 | 🌱 | [`servicio-catalogo/pom.xml`](servicio-catalogo/pom.xml) | POM del módulo `servicio-catalogo`: declara Spring Web, Spring Data Neo4j, MapStruct y dependencias de test. | --- |
 | 🌱 | [`servicio-catalogo/compose.yaml`](servicio-catalogo/compose.yaml) | Levanta un contenedor Neo4j local (puertos Bolt `7687` y HTTP `7474`) vía `spring-boot-docker-compose`. | --- |
-| 🌱 | [`servicio-catalogo/src/main/resources/application.properties`](servicio-catalogo/src/main/resources/application.properties) | Configuración de la aplicación, vacía a propósito: la conexión a Neo4j la resuelve `spring-boot-docker-compose`. | --- |
+| 🌱 | [`servicio-catalogo/src/main/resources/application.yml`](servicio-catalogo/src/main/resources/application.yml) | Configuración de la aplicación en YAML: solo `spring.application.name`; la conexión a Neo4j la resuelve `spring-boot-docker-compose`. | --- |
 | 🌱 | [`ServicioCatalogoApplication.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/ServicioCatalogoApplication.java) | Clase de arranque de Spring Boot del microservicio. | --- |
 
 ### Dominio
