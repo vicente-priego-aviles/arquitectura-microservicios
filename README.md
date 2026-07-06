@@ -27,7 +27,7 @@ Este capítulo construye el primer microservicio de la tienda online: **`servici
 
 Al terminar este capítulo entenderás:
 
-- Por qué el dominio se modela con **agregados** y **value objects**, y qué problema resuelve el **lenguaje ubicuo**.
+- Por qué el dominio se modela con **agregados** y **objetos de valor**, y qué problema resuelve el **lenguaje ubicuo**.
 - Cómo se traduce la **Arquitectura Hexagonal** (puertos y adaptadores) a paquetes y clases Java concretas.
 - Cómo **Spring Data Neo4j** conecta ese dominio con una base de datos de grafos real.
 - Cómo **Testcontainers** nos permite testear contra un Neo4j real (no un mock) sin instalar nada a mano.
@@ -40,13 +40,13 @@ El repositorio pasa a ser un **monorepo multi-módulo Maven**: el `pom.xml` raí
 
 DDD (Domain-Driven Design) es, en esencia, una forma de asegurarse de que el código dice lo mismo que dicen los expertos del negocio. Este capítulo usa tres piezas de su caja de herramientas:
 
-### Lenguaje ubicuo
+### Lenguaje ubicuo (Ubiquitous Language)
 
 Si un experto de negocio habla de "el precio de un producto", el código no debería llamarlo `amount` ni `value` dentro de una clase `Item`. Por eso el modelo de dominio de este proyecto está en español: `Producto`, `Precio`, `ProductoId`. No es una cuestión estética — es que el nombre de la clase y el nombre que usaría alguien de negocio deben ser el mismo nombre, para que no haga falta "traducir" mentalmente el código al hablar del negocio (y viceversa).
 
-### Value Object (Objeto de Valor)
+### Objeto de Valor (Value Object)
 
-Un Value Object es un dato que se define por su **valor**, no por su identidad — dos Value Objects con el mismo valor son intercambiables. Además, debe ser **inmutable** y **auto-validarse**: no debería poder existir un `Precio` negativo en ningún punto del programa.
+Un Objeto de Valor es un dato que se define por su **valor**, no por su identidad — dos Objetos de Valor con el mismo valor son intercambiables. Además, debe ser **inmutable** y **auto-validarse**: no debería poder existir un `Precio` negativo en ningún punto del programa.
 
 ```java
 // dominio/modelo/objetovalor/Precio.java
@@ -98,13 +98,13 @@ Dos factories estáticas, dos intenciones distintas: `generar()` para cuando el 
 
 ### Entidad (interna al agregado)
 
-Antes de llegar al Agregado hace falta un concepto intermedio: la Entidad. Una Entidad, como un Value Object, puede tener campos mutables — pero a diferencia de un Value Object, **se compara por identidad, no por valor**: dos entidades con los mismos atributos pero id distinto son objetos distintos, y una misma entidad sigue siendo "la misma" aunque cambien sus atributos. En esto se parece a un Agregado (que, de hecho, es en sí mismo una Entidad: la que hace de raíz).
+Antes de llegar al Agregado hace falta un concepto intermedio: la Entidad (Entity). Una Entidad, como un Objeto de Valor, puede tener campos mutables — pero a diferencia de un Objeto de Valor, **se compara por identidad, no por valor**: dos entidades con los mismos atributos pero id distinto son objetos distintos, y una misma entidad sigue siendo "la misma" aunque cambien sus atributos. En esto se parece a un Agregado (que, de hecho, es en sí mismo una Entidad: la que hace de raíz).
 
 La diferencia entre una Entidad interna y el Agregado raíz no es de naturaleza sino de **rol dentro del límite de consistencia**: la raíz es el único punto de entrada — se guarda, se recupera y se referencia desde fuera del agregado como una unidad —, mientras que una Entidad interna vive *dentro* de ese límite, sin repositorio propio ni ciclo de vida independiente: no se puede cargar ni guardar suelta, solo a través de la raíz que la contiene. Siguiendo la convención de este proyecto (tabla de la sección 4 de `CLAUDE.md`), una Entidad interna iría en `dominio.modelo.entidad`, junto a (pero separada de) `dominio.modelo.agregado`.
 
-`Producto` en este capítulo **no tiene ninguna Entidad interna** — solo Value Objects (`Precio`, `ProductoId`) además de sí mismo como raíz. Es una decisión deliberada de alcance, no una omisión: forzar una entidad interna artificial (p. ej. "reseñas" o "variantes de producto") solo para ilustrar el concepto no aportaría nada al caso de uso actual. Aparecerá con un ejemplo de código real en un capítulo futuro, cuando un agregado la necesite de forma natural (candidato: variantes o líneas dentro de un agregado `Pedido`) — ver `CHECKLIST.md`, sección "Arquitectura / DDD".
+`Producto` en este capítulo **no tiene ninguna Entidad interna** — solo Objetos de Valor (`Precio`, `ProductoId`) además de sí mismo como raíz. Es una decisión deliberada de alcance, no una omisión: forzar una entidad interna artificial (p. ej. "reseñas" o "variantes de producto") solo para ilustrar el concepto no aportaría nada al caso de uso actual. Aparecerá con un ejemplo de código real en un capítulo futuro, cuando un agregado la necesite de forma natural (candidato: variantes o líneas dentro de un agregado `Pedido`) — ver `CHECKLIST.md`, sección "Arquitectura / DDD".
 
-### Agregado
+### Agregado (Aggregate)
 
 Un Agregado es el límite de consistencia de un conjunto de objetos: se guarda y se recupera como una unidad, y solo se accede a él a través de su raíz (aquí, `Producto`). Las invariantes del negocio (las reglas que siempre deben cumplirse) viven dentro del agregado, no en un service externo:
 
@@ -151,9 +151,9 @@ public class Producto {
 Cuatro decisiones deliberadas aquí:
 
 1. **Constructor privado + factories estáticas nombradas** (`crear`, `reconstruir`): un agregado nuevo (creado por el negocio, con validación completa) y un agregado reconstruido (leído desde la base de datos, donde ya confiamos en que es válido) son conceptos distintos, aunque produzcan el mismo tipo de objeto. Nombrar la diferencia evita confundirlas. Esto sigue escrito a mano — Lombok no puede generar un constructor que valide invariantes de negocio. Nótese que el constructor privado **en sí mismo** no valida nada (la validación vive en `crear`), así que técnicamente `@AllArgsConstructor(access = AccessLevel.PRIVATE)` sería seguro aquí — se descarta igualmente porque, si en el futuro la validación se traslada al propio constructor (un refactor habitual en DDD), un constructor generado por Lombok no podría alojarla.
-2. **`equals`/`hashCode` basados solo en `id`**: dos productos con el mismo id son el mismo producto, aunque su nombre o precio hayan cambiado — es la semántica de identidad de un agregado, distinta de la semántica de valor de un Value Object. A diferencia del constructor, esto **sí** lo genera Lombok: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en la clase + `@EqualsAndHashCode.Include` solo en `id` reproduce exactamente esta semántica, sin comparar por `nombre`/`precio`/`fechaCreacion`. La regla para decidir no es "¿es dominio o infraestructura?", sino "¿la anotación puede saltarse una invariante de negocio?" — un constructor generado sí podría (permitiría construir un `Producto` sin pasar por `validarNombre`); un `equals`/`hashCode` generado no, así que aquí no hay ningún riesgo.
+2. **`equals`/`hashCode` basados solo en `id`**: dos productos con el mismo id son el mismo producto, aunque su nombre o precio hayan cambiado — es la semántica de identidad de un agregado, distinta de la semántica de valor de un Objeto de Valor. A diferencia del constructor, esto **sí** lo genera Lombok: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` en la clase + `@EqualsAndHashCode.Include` solo en `id` reproduce exactamente esta semántica, sin comparar por `nombre`/`precio`/`fechaCreacion`. La regla para decidir no es "¿es dominio o infraestructura?", sino "¿la anotación puede saltarse una invariante de negocio?" — un constructor generado sí podría (permitiría construir un `Producto` sin pasar por `validarNombre`); un `equals`/`hashCode` generado no, así que aquí no hay ningún riesgo.
 3. **Getters de solo lectura vía `@Getter` + `@Accessors(fluent = true)`**: un getter no puede saltarse ninguna invariante (solo lee un campo), así que aquí Lombok tampoco tiene contrapartida. `@Accessors(fluent = true)` es la pieza clave: sin ella, `@Getter` generaría accesores estilo JavaBean (`getId()`, `getNombre()`...); con ella, genera exactamente `id()`, `nombre()`, `descripcion()`, `precio()`, `fechaCreacion()` — el mismo nombre y firma que los getters manuales que sustituye, sin el prefijo `get`.
-4. **Sin getters estilo JavaBean** (`getNombre()`), sino accesores estilo record (`nombre()`): esto es intencional y consistente con los Value Objects (`Precio`, `ProductoId`, que son `record` y ya usan ese estilo). Como `@Accessors(fluent = true)` reproduce exactamente esos nombres, **los mappers no necesitan ningún cambio**: `ProductoMapper.aDTO(...)` y `ProductoEntidadMapper.aEntidad(...)` (sección 8.4) siguen llamando a `producto.id()`, `producto.nombre()`, `producto.precio()` tal cual — antes eran métodos escritos a mano, ahora los genera Lombok, pero la firma que ve el resto del código no cambia. Sigue habiendo una consecuencia práctica en cómo se escriben esos mappers (MapStruct no puede inferir automáticamente accesores sin prefijo `get`/`is`), lo verás en la [sección 8](#8-acceso-a-la-base-de-datos-con-spring-data-neo4j).
+4. **Sin getters estilo JavaBean** (`getNombre()`), sino accesores estilo record (`nombre()`): esto es intencional y consistente con los Objetos de Valor (`Precio`, `ProductoId`, que son `record` y ya usan ese estilo). Como `@Accessors(fluent = true)` reproduce exactamente esos nombres, **los mappers no necesitan ningún cambio**: `ProductoMapper.aDTO(...)` y `ProductoEntidadMapper.aEntidad(...)` (sección 8.4) siguen llamando a `producto.id()`, `producto.nombre()`, `producto.precio()` tal cual — antes eran métodos escritos a mano, ahora los genera Lombok, pero la firma que ve el resto del código no cambia. Sigue habiendo una consecuencia práctica en cómo se escriben esos mappers (MapStruct no puede inferir automáticamente accesores sin prefijo `get`/`is`), lo verás en la [sección 8](#8-acceso-a-la-base-de-datos-con-spring-data-neo4j).
 
 ---
 
@@ -165,14 +165,14 @@ Esto se traduce en tres capas y una regla de sentido único:
 
 | Capa | Responsabilidad | Depende de |
 |---|---|---|
-| `dominio` | Agregados, Value Objects, reglas de negocio | Nada (Java puro) |
+| `dominio` | Agregados, Objetos de Valor, reglas de negocio | Nada (Java puro) |
 | `aplicacion` | Casos de uso, orquesta el dominio | Solo de `dominio` |
 | `infraestructura` | Detalles técnicos: REST, Neo4j, frameworks | De `aplicacion` y `dominio` |
 
 `aplicacion` no conoce Spring Data Neo4j ni Spring MVC directamente: define **puertos** (interfaces) que expresan lo que necesita, y dos tipos de adaptador los conectan con el mundo real:
 
-- **Puerto de entrada** (`...PuertoEntrada`): la forma en que el mundo exterior invoca un caso de uso. Lo implementa un **servicio de aplicación** (`CrearProductoServicio`).
-- **Puerto de salida** (`...PuertoSalida`): lo que el caso de uso necesita del mundo exterior (aquí, persistencia). Lo implementa un **adaptador de infraestructura** (`ProductoRepositorioAdaptador`).
+- **Puerto de entrada** (inbound port; `...PuertoEntrada`): la forma en que el mundo exterior invoca un caso de uso (use case). Lo implementa un **servicio de aplicación** (application service): `CrearProductoServicio`.
+- **Puerto de salida** (outbound port; `...PuertoSalida`): lo que el caso de uso necesita del mundo exterior (aquí, persistencia). Lo implementa un **adaptador de infraestructura** (`ProductoRepositorioAdaptador`).
 
 ```
 infraestructura/entrada (REST) → aplicacion (puerto entrada → servicio) → dominio
@@ -209,10 +209,10 @@ Lo que vive en el parent y por qué:
 Ya lo vimos entero en la [sección 2](#2-domain-driven-design-los-conceptos-que-usamos). Lo único que falta es la excepción de dominio, que expresa un caso de negocio (no encontrar un producto) con su propio tipo, en vez de dejar que se propague una excepción técnica:
 
 ```java
-// dominio/excepcion/ProductoNoEncontradoExcepcion.java
-public class ProductoNoEncontradoExcepcion extends RuntimeException {
+// dominio/excepcion/ProductoNoEncontradoException.java
+public class ProductoNoEncontradoException extends RuntimeException {
 
-	public ProductoNoEncontradoExcepcion(String id) {
+	public ProductoNoEncontradoException(String id) {
 		super("No se ha encontrado el producto con id: " + id);
 	}
 }
@@ -273,7 +273,7 @@ public interface ProductoMapper {
 
 MapStruct genera automáticamente el mapeo cuando puede inferir las propiedades por convención de nombres (`getX()`/`isX()`); como nuestro dominio expone `id()` y no `getId()`, se lo indicamos explícitamente con un método `default` en la propia interfaz del mapper. MapStruct sigue generando una clase `ProductoMapperImpl` anotada como `@Component` de Spring, así que se inyecta igual que cualquier otro bean — solo que este método en concreto lo escribimos nosotros en vez de dejar que lo genere.
 
-`BuscarProductoServicio` sigue el mismo patrón y es quien lanza `ProductoNoEncontradoExcepcion` cuando el puerto de salida devuelve un `Optional` vacío.
+`BuscarProductoServicio` sigue el mismo patrón y es quien lanza `ProductoNoEncontradoException` cuando el puerto de salida devuelve un `Optional` vacío.
 
 **Sobre `@RequiredArgsConstructor`**: `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti). Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano. Regla general (válida para `Producto` y para cualquier agregado futuro del proyecto): Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia, getters de solo lectura) y para lo que no pueda saltarse una invariante de negocio (`equals`/`hashCode` por id); nunca para el constructor que valida esas invariantes.
 
@@ -305,7 +305,7 @@ public class ProductoController {
 }
 ```
 
-El controlador depende de las **interfaces** de los puertos de entrada, no de las clases `CrearProductoServicio`/`BuscarProductoServicio` directamente — Spring resuelve la implementación concreta por inyección. `ControladorErroresGlobal` (un `@RestControllerAdvice`) traduce las excepciones de dominio a códigos HTTP: `ProductoNoEncontradoExcepcion` → 404, `IllegalArgumentException` (las invariantes violadas en los Value Objects/agregado) → 400. Así el controlador no necesita ningún `try/catch`.
+El controlador depende de las **interfaces** de los puertos de entrada, no de las clases `CrearProductoServicio`/`BuscarProductoServicio` directamente — Spring resuelve la implementación concreta por inyección. `ControladorErroresGlobal` (un `@RestControllerAdvice`) traduce las excepciones de dominio a códigos HTTP: `ProductoNoEncontradoException` → 404, `IllegalArgumentException` (las invariantes violadas en los Objetos de Valor/agregado) → 400. Así el controlador no necesita ningún `try/catch`.
 
 ---
 
@@ -600,9 +600,9 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | 🌱 | [`Producto.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Producto.java) | Agregado raíz: encapsula las invariantes de negocio del producto tras las factories `crear`/`reconstruir`. | --- |
-| 🌱 | [`Precio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/Precio.java) | Value Object inmutable que valida que el precio no sea nulo ni negativo. | --- |
-| 🌱 | [`ProductoId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/ProductoId.java) | Value Object que garantiza que el identificador del producto es siempre un UUID válido. | --- |
-| 🌱 | [`ProductoNoEncontradoExcepcion.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/ProductoNoEncontradoExcepcion.java) | Excepción de dominio lanzada cuando no existe un producto con el id solicitado. | --- |
+| 🌱 | [`Precio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/Precio.java) | Objeto de Valor inmutable que valida que el precio no sea nulo ni negativo. | --- |
+| 🌱 | [`ProductoId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/ProductoId.java) | Objeto de Valor que garantiza que el identificador del producto es siempre un UUID válido. | --- |
+| 🌱 | [`ProductoNoEncontradoException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/ProductoNoEncontradoException.java) | Excepción de dominio lanzada cuando no existe un producto con el id solicitado. | --- |
 
 ### Aplicación
 
@@ -614,7 +614,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`BuscarProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/BuscarProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "buscar producto por id". | --- |
 | 🌱 | [`CrearProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/CrearProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "crear producto". | --- |
 | 🌱 | [`ProductoRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/ProductoRepositorioPuertoSalida.java) | Puerto de salida: lo que la aplicación necesita para persistir y leer productos. | --- |
-| 🌱 | [`BuscarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductoServicio.java) | Implementa el caso de uso de búsqueda; lanza `ProductoNoEncontradoExcepcion` si no existe. | --- |
+| 🌱 | [`BuscarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductoServicio.java) | Implementa el caso de uso de búsqueda; lanza `ProductoNoEncontradoException` si no existe. | --- |
 | 🌱 | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Implementa el caso de uso de creación orquestando dominio, persistencia y mapeo a DTO. | --- |
 
 ### Infraestructura de entrada (REST)
@@ -638,7 +638,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | 🌱 | [`ProductoTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/ProductoTest.java) | Tests unitarios de las invariantes del agregado `Producto`. | --- |
-| 🌱 | [`PrecioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/PrecioTest.java) | Tests unitarios de las invariantes del Value Object `Precio`. | --- |
+| 🌱 | [`PrecioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/PrecioTest.java) | Tests unitarios de las invariantes del Objeto de Valor `Precio`. | --- |
 | 🌱 | [`ProductoRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/ProductoRepositorioAdaptadorIntegrationTest.java) | Test de integración con un Neo4j real vía Testcontainers. | --- |
 
 ---

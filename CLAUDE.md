@@ -35,8 +35,9 @@ Ver `README.md` de este capítulo, sección 13, como referencia de formato aplic
 ## Idioma y lenguaje ubicuo
 
 - Todo el contenido que se genera (documentación, commits, comentarios, nombres del modelo de dominio) debe estar **en español**.
-- El **modelo de dominio** (agregados, entidades, value objects, excepciones de dominio, eventos) usa nombres en español siguiendo el lenguaje ubicuo DDD: `Producto`, `Precio`, `ProductoNoEncontradoExcepcion`, etc.
-- Las **capas técnicas/framework** pueden mantener sufijos en inglés cuando es el estándar (`Controller`, `Repository`, `Service`, `DTO`), combinados con el nombre de dominio en español (`ProductoController`, `ProductoRepositorioAdaptador`).
+- El **modelo de dominio** (agregados, entidades, value objects, eventos) usa nombres en español siguiendo el lenguaje ubicuo DDD: `Producto`, `Precio`, etc.
+- Las **capas técnicas/framework** pueden mantener sufijos en inglés cuando es el estándar (`Controller`, `Repository`, `Service`, `DTO`), combinados con el nombre de dominio en español (`ProductoController`, `ProductoRepositorioAdaptador`). Las **excepciones de dominio** siguen esta misma excepción a la regla: sufijo `...Exception` en inglés (no `...Excepcion`), por ser una convención Java tan extendida como `Controller` — combinado con el nombre de dominio en español (`ProductoNoEncontradoException`).
+- **Términos técnicos en el `README.md`**: ver `GLOSARIO.md` para la tabla de traducciones ya fijadas (Agregado/Aggregate, Objeto de Valor/Value Object, Puerto de entrada/Inbound Port, etc.) y la convención a seguir — la primera vez que aparece un término técnico nuevo en el `README.md` de un capítulo, se escribe la traducción al español seguida del término en inglés entre paréntesis (p. ej. "Objeto de Valor (Value Object)"); las siguientes apariciones usan solo la forma en español ya fijada. Si el capítulo introduce un término que no está todavía en `GLOSARIO.md`, se añade esa fila como parte del mismo commit.
 
 ## Convención arquitectónica: Hexagonal + DDD
 
@@ -47,7 +48,7 @@ Esta convención es compartida con el proyecto hermano `sistema-reservas-viaje` 
 | Dominio — agregados | `dominio.modelo.agregado` | — |
 | Dominio — value objects | `dominio.modelo.objetovalor` | `record` |
 | Dominio — entidades internas | `dominio.modelo.entidad` | — |
-| Dominio — excepciones | `dominio.excepcion` | `...Excepcion` |
+| Dominio — excepciones | `dominio.excepcion` | `...Exception` |
 | Dominio — eventos | `dominio.evento` | `...Evento` |
 | Aplicación — puertos de entrada (casos de uso) | `aplicacion.puerto.entrada` | `...PuertoEntrada` |
 | Aplicación — puertos de salida | `aplicacion.puerto.salida` | `...PuertoSalida` |
