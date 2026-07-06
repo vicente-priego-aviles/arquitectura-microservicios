@@ -275,15 +275,29 @@ public interface ProductoMapper {
 
 MapStruct genera automáticamente el mapeo cuando puede inferir las propiedades por convención de nombres (`getX()`/`isX()`); como nuestro dominio expone `id()` y no `getId()`, se lo indicamos explícitamente con un método `default` en la propia interfaz del mapper. MapStruct sigue generando una clase `ProductoMapperImpl` anotada como `@Component` de Spring, así que se inyecta igual que cualquier otro bean — solo que este método en concreto lo escribimos nosotros en vez de dejar que lo genere.
 
+> **¿Qué gana entonces este mapper con MapStruct, si el cuerpo lo escribimos a mano?**
+>
+> Actualmente, sobre todo una cosa: `ProductoMapperImpl` sigue generándose y registrándose como bean de Spring sin que tengamos que escribir esa clase nosotros, solo el método `default`.
+>
+> El emparejamiento automático de propiedades no puede activarse aquí porque `Producto` no expone accesores JavaBean (`getId()`, `getPrecio()`) sino fluent (`id()`, `precio()`), sus valores son Objetos de Valor que hay que desenvolver (`.valor()`), y reconstruirlo pasa por `Producto.reconstruir(...)` en vez de un constructor público — nada de eso lo puede inferir MapStruct sin pistas adicionales.
+>
+> El ahorro real de boilerplate (mapeo generado sin escribir una sola línea) llegará más adelante, con mapeos entre objetos "planos" con nombres de campo coincidentes, o con colecciones (`List<Producto>` → `List<ProductoDTO>`), que MapStruct sabe generar reutilizando este mismo método `aDTO` una vez definido.
+
 `BuscarProductoServicio` sigue el mismo patrón y es quien lanza `ProductoNoEncontradoException` cuando el puerto de salida devuelve un `Optional` vacío.
 
-**Sobre `@RequiredArgsConstructor`**: `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti). Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano. Regla general (válida para `Producto` y para cualquier agregado futuro del proyecto): Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia, getters de solo lectura) y para lo que no pueda saltarse una invariante de negocio (`equals`/`hashCode` por id); nunca para el constructor que valida esas invariantes.
+> **Sobre `@RequiredArgsConstructor`**
+>
+> `CrearProductoServicio`, `BuscarProductoServicio`, `ProductoRepositorioAdaptador` y `ProductoController` no tienen más constructor que uno de inyección de dependencias sobre campos `final` — el caso de uso exacto para el que Lombok sigue aportando valor incluso en Java 25 (no hay ningún equivalente en el lenguaje que genere ese constructor por ti).
+>
+> Fíjate en que esto **no** lo usamos en `Producto`: el agregado necesita un constructor privado más factories nombradas que validan invariantes (`crear`, `reconstruir`), algo que Lombok no puede generar — por eso ahí seguimos escribiéndolo a mano.
+>
+> Regla general (válida para `Producto` y para cualquier agregado futuro del proyecto): Lombok para boilerplate técnico repetitivo (inyección de dependencias, entidades de persistencia, getters de solo lectura) y para lo que no pueda saltarse una invariante de negocio (`equals`/`hashCode` por id); nunca para el constructor que valida esas invariantes.
 
 ---
 
 ## 7. La infraestructura de entrada: el adaptador REST
 
-`ProductoController` es un adaptador: su única responsabilidad es traducir HTTP a llamadas de puertos de entrada, y viceversa.
+`ProductoController` es un adaptador: su única responsabilidad es traducir HTTP a llamadas de puertos de entrada, y viceversa. De ahí el nombre de su paquete, `infraestructura.adaptador.entrada.rest`: vive en `infraestructura` (conoce frameworks, en este caso Spring MVC), es de `entrada` (arranca un caso de uso a partir de una petición externa, no al revés) y su tecnología concreta es `rest`.
 
 ```java
 @RestController
@@ -307,10 +321,11 @@ public class ProductoController {
 }
 ```
 
-El controlador depende de las **interfaces** de los puertos de entrada, no de las clases `CrearProductoServicio`/`BuscarProductoServicio` directamente — Spring resuelve la implementación concreta por inyección. `ControladorErroresGlobal` (un `@RestControllerAdvice`) traduce las excepciones de dominio a códigos HTTP: `ProductoNoEncontradoException` → 404, `IllegalArgumentException` (las invariantes violadas en los Objetos de Valor/agregado) → 400. Así el controlador no necesita ningún `try/catch`.
+El controlador depende de las **interfaces** de los puertos de entrada, no de las clases `CrearProductoServicio`/`BuscarProductoServicio` directamente — Spring resuelve la implementación concreta por inyección. 
+
+`ControladorErroresGlobal` (un `@RestControllerAdvice`) traduce las excepciones de dominio a códigos HTTP: `ProductoNoEncontradoException` → 404, `IllegalArgumentException` (las invariantes violadas en los Objetos de Valor/Agregado) → 400. Así el controlador no necesita ningún `try/catch`.
 
 ---
-
 ## 8. Acceso a la base de datos con Spring Data Neo4j
 
 Esta es la sección donde el dominio "toca" una base de datos real. Vamos a verla de fuera hacia dentro: primero cómo se configura la conexión, después cómo se modelan los datos, y por último cómo se accede a ellos, tanto desde el código como manualmente.
@@ -328,6 +343,12 @@ spring:
       password: "secret"
 ```
 
+> **¿Qué es exactamente el protocolo Bolt?**
+>
+> Bolt es el protocolo binario propietario que usa Neo4j para la comunicación entre el servidor y sus drivers oficiales, escuchando por defecto en el puerto `7687` — el mismo que ves expuesto en `compose.yaml` (`'7687:7687'`). Spring no lo implementa: `spring-boot-starter-data-neo4j` trae transitivamente el driver oficial de Neo4j para Java, y es ese driver quien habla Bolt de verdad; Spring solo construye la URI de conexión y se la pasa.
+>
+> El esquema de la URI también importa: `neo4j://` (el que verías con `spring.neo4j.uri`) le pide al driver que primero solicite al servidor una *routing table* — útil en un clúster, para saber a qué nodo enrutar cada lectura/escritura —, mientras que `bolt://` apunta directo a una única instancia sin ese paso previo, que es lo habitual en un entorno local de un solo contenedor como el nuestro.
+
 En este capítulo no fijamos esas propiedades a mano en `application.yml` — y es a propósito. Cuando ejecutas `./mvnw -pl servicio-catalogo spring-boot:run`, `spring-boot-docker-compose` (que ya está en el `pom.xml`) detecta `compose.yaml`, levanta un contenedor Neo4j y **crea automáticamente el bean de conexión** (`Neo4jConnectionDetails`) apuntando al puerto real que Docker asignó — no hace falta escribir ni una propiedad `spring.neo4j.uri`. Es el mismo mecanismo de "service connection" que usamos en los tests con Testcontainers (sección 9.2): en desarrollo lo activa Docker Compose, en tests lo activa Testcontainers.
 
 Según la documentación oficial: *"cuando se incluye el módulo `spring-boot-docker-compose`, Spring Boot busca ficheros `compose.yml`, ejecuta `docker compose up`, crea los beans de conexión para los contenedores soportados y ejecuta `docker compose stop` al apagar la aplicación"* — es decir, ni siquiera tienes que acordarte de pararlo.
@@ -335,6 +356,12 @@ Según la documentación oficial: *"cuando se incluye el módulo `spring-boot-do
 ### 8.2. Cómo se modela `Producto` como nodo del grafo
 
 `ProductoEntidad` es la representación de persistencia — deliberadamente distinta del agregado `Producto` del dominio (así el dominio no depende de anotaciones de Spring Data):
+
+> **¿Por qué el sufijo `Entidad` y no, por ejemplo, `Node` (por la anotación `@Node` de abajo)?**
+>
+> El sufijo es intencionadamente genérico, no atado a la anotación de turno: la tabla de convención arquitectónica del proyecto fija `...Entidad` para *cualquier* clase de mapeo de persistencia, sea cual sea el motor (Neo4j, JPA/PostgreSQL, MongoDB...) — así el mismo patrón se reconoce en cualquier microservicio futuro, sin tener que aprender un sufijo distinto por tecnología (`...Node`, `...Entity`, `...Document`...).
+>
+> Además, mantener el sufijo evita una colisión de nombres: `Producto` (el agregado de dominio) y la clase de persistencia viven en paquetes distintos, pero si ambas se llamaran igual, cualquier fichero que necesite las dos a la vez —como `ProductoEntidadMapper`— tendría que usar el nombre totalmente cualificado para una de ellas, porque Java no soporta alias de import.
 
 ```java
 // infraestructura/adaptador/salida/persistencia/entidad/ProductoEntidad.java
@@ -401,7 +428,7 @@ public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSa
 
 Este es el `implements` que "invierte" la dependencia de la que hablamos en la sección 3: la interfaz (`ProductoRepositorioPuertoSalida`) vive en `aplicacion`, pero quien la implementa vive en `infraestructura` y es el único punto del proyecto que sabe que la persistencia es Neo4j. `ProductoEntidadMapper` hace la traducción en ambas direcciones, y — igual que `ProductoMapper` — usa métodos `default` porque `Producto` no tiene un constructor público ni getters JavaBean; en la dirección entidad→dominio, usa la factory `Producto.reconstruir(...)` en vez de `Producto.crear(...)`, precisamente para no re-disparar la generación de un nuevo id ni de una nueva fecha de creación.
 
-Nota sobre Lombok y este mapper: `producto.id()`, `producto.nombre()`, `producto.precio()` (línea de `aEntidad`) llaman a los getters fluidos que genera `@Getter @Accessors(fluent = true)` en `Producto` (sección 5, punto 3) — antes eran métodos escritos a mano con la misma firma exacta. El mapper no cambió ni una línea al introducir Lombok ahí: como el nombre y la forma del método son idénticos, esta clase (y `ProductoMapper` en la sección 6) son completamente ajenas a si el getter está escrito a mano o generado.
+Nota sobre Lombok y este mapper: `producto.id()`, `producto.nombre()`, `producto.precio()` (línea de `aEntidad`) llaman a los getters fluidos que genera `@Getter @Accessors(fluent = true)` en `Producto` (sección 2, subsección [Agregado (Aggregate)](#agregado-aggregate)) — antes eran métodos escritos a mano con la misma firma exacta. El mapper no cambió ni una línea al introducir Lombok ahí: como el nombre y la forma del método son idénticos, esta clase (y `ProductoMapper` en la [sección 6](#6-la-aplicación-puertos-y-casos-de-uso)) son completamente ajenas a si el getter está escrito a mano o generado.
 
 ### 8.5. Acceder a los datos manualmente (fuera del código)
 
@@ -422,7 +449,7 @@ services:
 
 `cypher-shell` es un cliente de línea de comandos que habla Bolt (igual que el driver de Spring Data) y ya viene instalado dentro del contenedor — no hace falta instalar nada en tu máquina.
 
-1. Con el servicio arrancado (`spring-boot:run` levanta `compose.yaml` automáticamente), abre la consola dentro del contenedor:
+1. **Requisito previo — el contenedor Neo4j ya tiene que estar corriendo.** La forma habitual es dejar el microservicio arrancado en una terminal (`./mvnw -pl servicio-catalogo spring-boot:run` levanta `compose.yaml` automáticamente, ver [sección 8.1](#81-cómo-se-configura-la-conexión)); si no quieres arrancar Spring Boot, también vale levantar solo el contenedor a mano con `docker compose -f servicio-catalogo/compose.yaml up -d`. El comando de abajo usa `exec`, que **no arranca** Neo4j — abre una sesión dentro de un contenedor que ya está en marcha, y falla si no lo está:
 
    ```bash
    docker compose -f servicio-catalogo/compose.yaml exec neo4j cypher-shell -u neo4j -p notverysecret
@@ -436,17 +463,28 @@ services:
    ```
 
    La salida es una tabla en texto plano con los nodos encontrados (y sus propiedades `id`, `nombre`, `descripcion`, `precio`, `fechaCreacion`).
-4. Comandos útiles dentro de la sesión: `:help` (ayuda), `:clear` (limpiar pantalla), `:exit` o `Ctrl+D` (salir y volver a la shell del host).
+4. Comandos útiles dentro de la sesión: `:help` (ayuda), `:history` (historial de sentencias ejecutadas), `:exit` o `Ctrl+D` (salir y volver a la shell del host).
 
 **Opción B — Neo4j Browser, la interfaz web que trae el propio contenedor:**
 
-1. Con el servicio arrancado (`spring-boot:run` levanta `compose.yaml` automáticamente), abre [http://localhost:7474](http://localhost:7474).
-2. En la pantalla de conexión: *Connect URL* → `bolt://localhost:7687`, *Username* → `neo4j`, *Password* → `notverysecret` (las mismas credenciales de `NEO4J_AUTH` en `compose.yaml`).
-3. Una vez dentro, la barra superior acepta Cypher directamente. Prueba `MATCH (p:Producto) RETURN p;` y pulsa el botón de ejecutar (▶) — Neo4j Browser dibuja los nodos `:Producto` como un grafo interactivo, mucho más visual que la salida en texto de `cypher-shell`.
+1. **Requisito previo — el contenedor Neo4j ya tiene que estar corriendo** (ver el requisito previo de la opción A anterior: `spring-boot:run` en una terminal, o `docker compose up -d` a mano). Con eso hecho, abre [http://localhost:7474](http://localhost:7474).
+2. En la pantalla de conexión: *Protocol* → `neo4j://`, *Connection URL* → `localhost:7687`, *Database user* → `neo4j`, *Password* → `notverysecret` (las mismas credenciales de `NEO4J_AUTH` en `compose.yaml`).
 
-![Neo4j Browser mostrando nodos Producto](docs/images/capitulo-01/neo4j-browser.png)
+   ![Pantalla de conexión de Neo4j Browser](docs/images/capitulo-01/neo4j-browser-login.png)
 
-*(Captura pendiente)*
+   *Pantalla de conexión de Neo4j Browser, con el protocolo, la URL y las credenciales de `compose.yaml` ya rellenos.*
+
+   <br>
+
+3. Tras conectar verás la pantalla de bienvenida de Neo4j Browser, todavía sin datos (`Nodes (0)`, `Relationships (0)` en el panel lateral):
+
+   ![Neo4j Browser recién conectado, sin datos](docs/images/capitulo-01/neo4j-browser.png)
+
+   *Pantalla de bienvenida de Neo4j Browser justo tras conectar, antes de ejecutar ninguna consulta.*
+
+   <br>
+
+4. La barra superior acepta Cypher directamente. Prueba `MATCH (p:Producto) RETURN p;` y pulsa el botón de ejecutar (▶) — Neo4j Browser dibuja los nodos `:Producto` como un grafo interactivo, mucho más visual que la salida en texto de `cypher-shell`. Verás el resultado con datos reales más adelante, en la [sección 11](#11-cómo-probarlo-de-extremo-a-extremo), después de crear productos vía API.
 
 ---
 
@@ -514,7 +552,15 @@ Fuentes editables en `docs/diagramas/` (formato `.excalidraw`, abrir en [excalid
 
 ![Arquitectura Hexagonal — servicio-catalogo](docs/images/capitulo-01/arquitectura-hexagonal.png)
 
+*Capas del microservicio (dominio, aplicación, infraestructura) y dirección de las dependencias entre ellas.*
+
+<br>
+
 ![Secuencia — Crear Producto](docs/images/capitulo-01/secuencia-crear-producto.png)
+
+*Diagrama de secuencia del caso de uso "Crear Producto", desde la petición HTTP hasta la escritura en Neo4j.*
+
+<br>
 
 ---
 
@@ -556,7 +602,13 @@ curl http://localhost:8080/api/productos/{id}
 # -> 200 OK, o 404 si no existe
 ```
 
-Y, como vimos en la [sección 8.5](#85-acceder-a-los-datos-manualmente-fuera-del-código), puedes confirmar que el dato quedó realmente en el grafo con `cypher-shell` en paralelo.
+Y, como vimos en la [sección 8.5](#85-acceder-a-los-datos-manualmente-fuera-del-código), puedes confirmar que el dato quedó realmente en el grafo con `cypher-shell` en paralelo, o visualizarlo en Neo4j Browser ejecutando `MATCH (p:Producto) RETURN p;`:
+
+![Grafo de productos en Neo4j Browser tras crearlos vía API](docs/images/capitulo-01/neo4j-browser-grafo-productos.png)
+
+*Resultado de `MATCH (p:Producto) RETURN p;` en Neo4j Browser, con los productos creados vía la API REST.*
+
+<br>
 
 ---
 
@@ -584,6 +636,9 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw`](docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Crear Producto". | --- |
 | 🌱 | [`docs/images/capitulo-01/arquitectura-hexagonal.png`](docs/images/capitulo-01/arquitectura-hexagonal.png) | Render PNG del diagrama de arquitectura hexagonal, embebido en la [sección 10](#10-diagramas). | --- |
 | 🌱 | [`docs/images/capitulo-01/secuencia-crear-producto.png`](docs/images/capitulo-01/secuencia-crear-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 10](#10-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-01/neo4j-browser-login.png`](docs/images/capitulo-01/neo4j-browser-login.png) | Captura de la pantalla de conexión de Neo4j Browser, embebida en la [sección 8.5](#85-acceder-a-los-datos-manualmente-fuera-del-código). | --- |
+| 🌱 | [`docs/images/capitulo-01/neo4j-browser.png`](docs/images/capitulo-01/neo4j-browser.png) | Captura de Neo4j Browser recién conectado, sin datos todavía, embebida en la [sección 8.5](#85-acceder-a-los-datos-manualmente-fuera-del-código). | --- |
+| 🌱 | [`docs/images/capitulo-01/neo4j-browser-grafo-productos.png`](docs/images/capitulo-01/neo4j-browser-grafo-productos.png) | Captura del grafo de productos en Neo4j Browser tras crearlos vía API, embebida en la [sección 11](#11-cómo-probarlo-de-extremo-a-extremo). | --- |
 
 ### Build y configuración
 

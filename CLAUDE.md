@@ -34,6 +34,23 @@ El `README.md` de cada rama de capítulo incluye, como **penúltima sección** (
 
 Ver `README.md` de este capítulo, sección 13, como referencia de formato aplicado.
 
+## Convención: notas explicativas en el README
+
+Cuando una aclaración se sale del hilo principal del texto (una matización, una pregunta que anticipa la del lector, un detalle que no todos necesitan leer para seguir la explicación), se introduce como **nota en formato blockquote**, no como párrafo normal ni con negrita inline:
+
+```markdown
+> **Encabezado breve de la nota**
+>
+> Primer párrafo de la nota.
+>
+> Segundo párrafo, si hace falta — cada uno separado por una línea `>` en blanco para que no sea denso de leer.
+```
+
+- **Encabezado obligatorio**: primera línea en negrita, a modo de título corto de la nota (una frase o una pregunta que anticipa lo que el lector se estará preguntando) — nunca se empieza la nota directamente con el cuerpo del texto.
+- **Saltos de línea entre ideas**: si la nota es larga o mezcla varias ideas distintas, separar con una línea `>` vacía entre los párrafos donde tenga sentido el corte — no es obligatorio partir cada frase, solo evitar un único bloque compacto y denso de leer.
+- **Evitar temporalidad ambigua**: para contrastar el estado actual del código frente a una evolución futura, usar "Actualmente" o "Hasta ahora" en vez de "Hoy" (más fácil de confundir con la fecha de escritura del capítulo que con "en el estado actual del código").
+- Ejemplo aplicado: README de `capitulo-01`, sección 6 (nota sobre qué aporta MapStruct cuando el mapeo se escribe a mano) y la nota sobre `@RequiredArgsConstructor` en esa misma sección.
+
 ## Idioma y lenguaje ubicuo
 
 - Todo el contenido que se genera (documentación, commits, comentarios, nombres del modelo de dominio) debe estar **en español**.

@@ -63,7 +63,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 Capturas de pantalla de interfaces web que el usuario debe adjuntar manualmente (los diagramas `.excalidraw` no cuentan aquí, esos se renderizan directamente a PNG). Carpeta destino: `docs/images/`. Formato: `.png`.
 
-- [ ] `docs/images/capitulo-01-neo4j-browser.png` — Neo4j Browser (`http://localhost:7474`) tras conectar y ejecutar `MATCH (p:Producto) RETURN p;` con al menos un producto creado, mostrando el grafo resultante. Referenciada en la sección 8.5 del `README.md`.
+Ninguna pendiente por ahora — las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`) ya están adjuntadas.
 
 ## Microservicios candidatos
 - [x] Catálogo/Productos (`servicio-catalogo`)
