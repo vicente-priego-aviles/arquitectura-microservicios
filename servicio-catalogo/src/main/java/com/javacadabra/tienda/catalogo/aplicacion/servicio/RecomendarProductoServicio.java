@@ -3,7 +3,7 @@ package com.javacadabra.tienda.catalogo.aplicacion.servicio;
 import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.RecomendarProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.RecomendarProductoPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
-import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoExcepcion;
+import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +21,9 @@ public class RecomendarProductoServicio implements RecomendarProductoPuertoEntra
 		ProductoId recomendadoId = ProductoId.de(dto.productoRecomendadoId());
 
 		Producto producto = productoRepositorioPuertoSalida.buscarPorId(id)
-				.orElseThrow(() -> new ProductoNoEncontradoExcepcion(productoId));
+				.orElseThrow(() -> new ProductoNoEncontradoException(productoId));
 		productoRepositorioPuertoSalida.buscarPorId(recomendadoId)
-				.orElseThrow(() -> new ProductoNoEncontradoExcepcion(dto.productoRecomendadoId()));
+				.orElseThrow(() -> new ProductoNoEncontradoException(dto.productoRecomendadoId()));
 
 		producto.validarRecomendacion(recomendadoId);
 		productoRepositorioPuertoSalida.agregarRecomendacion(id, recomendadoId);

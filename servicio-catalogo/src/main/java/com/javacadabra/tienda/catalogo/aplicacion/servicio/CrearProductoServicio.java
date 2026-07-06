@@ -6,7 +6,7 @@ import com.javacadabra.tienda.catalogo.aplicacion.mapper.ProductoMapper;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.CrearProductoPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.CategoriaRepositorioPuertoSalida;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
-import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaExcepcion;
+import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
@@ -25,7 +25,7 @@ public class CrearProductoServicio implements CrearProductoPuertoEntrada {
 	public ProductoDTO crear(CrearProductoDTO dto) {
 		CategoriaId categoriaId = CategoriaId.de(dto.categoriaId());
 		categoriaRepositorioPuertoSalida.buscarPorId(categoriaId)
-				.orElseThrow(() -> new CategoriaNoEncontradaExcepcion(dto.categoriaId()));
+				.orElseThrow(() -> new CategoriaNoEncontradaException(dto.categoriaId()));
 
 		Producto producto = Producto.crear(dto.nombre(), dto.descripcion(), Precio.de(dto.precio()), categoriaId);
 		Producto guardado = productoRepositorioPuertoSalida.guardar(producto);

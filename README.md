@@ -1,6 +1,6 @@
 # Capítulo 2 — Relaciones de grafo (Categoría)
 
-Segundo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-01-fundamentos-ddd-hexagonal`: todo lo explicado allí (Value Object, Entidad, Agregado, Arquitectura Hexagonal, convención Lombok, Testcontainers...) sigue vigente y no se repite aquí — si algo de este capítulo no tiene sentido sin ese contexto, consulta primero el `README.md` de esa rama.
+Segundo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-01-fundamentos-ddd-hexagonal`: todo lo explicado allí (Objeto de Valor, Entidad, Agregado, Arquitectura Hexagonal, convención Lombok, Testcontainers...) sigue vigente y no se repite aquí — si algo de este capítulo no tiene sentido sin ese contexto, consulta primero el `README.md` de esa rama.
 
 ## Índice
 
@@ -85,9 +85,9 @@ public static Producto crear(String nombre, String descripcion, Precio precio, C
 El campo es `CategoriaId categoriaId`, **no** `Categoria categoria`. Es una regla general de DDD para relaciones entre agregados: un agregado referencia a otro por su identidad, nunca por el objeto completo. Dos motivos:
 
 1. **Límite de consistencia**: cada agregado es su propia unidad transaccional. Si `Producto` guardara una referencia en memoria a un objeto `Categoria` completo, sería fácil (por accidente) mutar esa `Categoria` a través de un `Producto` y saltarse su propio ciclo de vida.
-2. **Coste**: cargar un `Producto` no debería obligar a cargar (y mantener actualizada) toda una `Categoria` — sobre todo si, como en la sección 6, ese producto también tiene una lista de recomendaciones que podría ser grande.
+2. **Coste**: cargar un `Producto` no debería obligar a cargar (y mantener actualizada) toda una `Categoria` — sobre todo si, como en la [sección 6](#6-lección-de-spring-data-neo4j-2-cuándo-no-usar-relationship), ese producto también tiene una lista de recomendaciones que podría ser grande.
 
-La validación de que esa categoría **existe de verdad** no vive en el dominio (un Value Object no puede consultar una base de datos), sino en la capa de aplicación:
+La validación de que esa categoría **existe de verdad** no vive en el dominio (un Objeto de Valor no puede consultar una base de datos), sino en la capa de aplicación:
 
 ```java
 // aplicacion/servicio/CrearProductoServicio.java
@@ -95,7 +95,7 @@ La validación de que esa categoría **existe de verdad** no vive en el dominio 
 public ProductoDTO crear(CrearProductoDTO dto) {
 	CategoriaId categoriaId = CategoriaId.de(dto.categoriaId());
 	categoriaRepositorioPuertoSalida.buscarPorId(categoriaId)
-			.orElseThrow(() -> new CategoriaNoEncontradaExcepcion(dto.categoriaId()));
+			.orElseThrow(() -> new CategoriaNoEncontradaException(dto.categoriaId()));
 
 	Producto producto = Producto.crear(dto.nombre(), dto.descripcion(), Precio.de(dto.precio()), categoriaId);
 	Producto guardado = productoRepositorioPuertoSalida.guardar(producto);
@@ -147,13 +147,13 @@ public Producto guardar(Producto producto) {
 	// sobreescribir sus demás propiedades: Spring Data Neo4j guarda todo el grafo
 	// alcanzable desde la raíz al hacer save().
 	var categoriaEntidad = categoriaRepositorioNeo4j.findById(producto.categoriaId().valor())
-			.orElseThrow(() -> new CategoriaNoEncontradaExcepcion(producto.categoriaId().valor()));
+			.orElseThrow(() -> new CategoriaNoEncontradaException(producto.categoriaId().valor()));
 	var entidadGuardada = productoRepositorioNeo4j.save(productoEntidadMapper.aEntidad(producto, categoriaEntidad));
 	return productoEntidadMapper.aDominio(entidadGuardada);
 }
 ```
 
-Se resuelve la entidad real (con todas sus propiedades) antes de enlazarla. Esto es un `findById` **técnico**, no una regla de negocio duplicada: la existencia de la categoría ya se validó en `CrearProductoServicio` (sección 3); aquí el adaptador simplemente necesita el objeto completo porque así funciona el mapeo objeto-grafo de Spring Data Neo4j.
+Se resuelve la entidad real (con todas sus propiedades) antes de enlazarla. Esto es un `findById` **técnico**, no una regla de negocio duplicada: la existencia de la categoría ya se validó en `CrearProductoServicio` ([sección 3](#3-referenciar-otro-agregado-categoriaid-no-categoria)); aquí el adaptador simplemente necesita el objeto completo porque así funciona el mapeo objeto-grafo de Spring Data Neo4j.
 
 El test `guardarDosProductosEnLaMismaCategoriaNoSobrescribeElNombreDeLaCategoria` (en `ProductoRepositorioAdaptadorIntegrationTest`) reproduce exactamente este escenario: guarda dos productos en la misma categoría y comprueba que su nombre sigue intacto después del segundo guardado.
 
@@ -186,7 +186,7 @@ Dos motivos para esta decisión, no solo uno:
    }
    ```
 
-Nótese que `buscarRecomendados` también trae la relación `PERTENECE_A` de cada producto recomendado (`collect(r), collect(c)`) — porque el agregado `Producto` exige un `categoriaId` no nulo (sección 3), así que **cualquier** query Cypher que reconstruya un `Producto` tiene que traer también su categoría, o el mapeo fallaría. Es el mismo patrón `RETURN nodo, collect(relación), collect(nodoRelacionado)` que recomienda la documentación oficial de Spring Data Neo4j para poblar relaciones en consultas custom, aplicado a que la reconstrucción del agregado no rompa su propia invariante.
+Nótese que `buscarRecomendados` también trae la relación `PERTENECE_A` de cada producto recomendado (`collect(r), collect(c)`) — porque el agregado `Producto` exige un `categoriaId` no nulo ([sección 3](#3-referenciar-otro-agregado-categoriaid-no-categoria)), así que **cualquier** query Cypher que reconstruya un `Producto` tiene que traer también su categoría, o el mapeo fallaría. Es el mismo patrón `RETURN nodo, collect(relación), collect(nodoRelacionado)` que recomienda la documentación oficial de Spring Data Neo4j para poblar relaciones en consultas custom, aplicado a que la reconstrucción del agregado no rompa su propia invariante.
 
 `agregarRecomendacion` es una escritura (`MERGE`) sin necesidad de `@Transactional` explícito: Spring Data Neo4j asume que un método de repositorio es de escritura salvo que se marque `readOnly = true` — por eso las dos consultas de lectura sí lo llevan (buena práctica, no requisito de corrección) y la de escritura no.
 
@@ -209,7 +209,7 @@ Un puerto de entrada por caso de uso, igual que en el capítulo 1 — la granula
 
 ## 8. Testing: un patrón nuevo, tests de servicio con Mockito
 
-El capítulo 1 solo tenía dos niveles de test: unitarios de dominio (sin Spring) e integración con Testcontainers (con Neo4j real). Ninguno de los dos cubre las ramas de validación que viven en la capa de **aplicación** — por ejemplo, que `CrearProductoServicio` lance `CategoriaNoEncontradaExcepcion` sin llegar a guardar nada. Para eso se añade un tercer nivel: tests de servicio con **Mockito**, mockeando los puertos de salida.
+El capítulo 1 solo tenía dos niveles de test: unitarios de dominio (sin Spring) e integración con Testcontainers (con Neo4j real). Ninguno de los dos cubre las ramas de validación que viven en la capa de **aplicación** — por ejemplo, que `CrearProductoServicio` lance `CategoriaNoEncontradaException` sin llegar a guardar nada. Para eso se añade un tercer nivel: tests de servicio con **Mockito**, mockeando los puertos de salida.
 
 ```java
 // test/.../aplicacion/servicio/CrearProductoServicioTest.java
@@ -225,7 +225,7 @@ class CrearProductoServicioTest {
 	void crearUnProductoConUnaCategoriaInexistenteLanzaExcepcionYNoGuardaNada() {
 		when(categoriaRepositorioPuertoSalida.buscarPorId(categoriaId)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> servicio.crear(dto)).isInstanceOf(CategoriaNoEncontradaExcepcion.class);
+		assertThatThrownBy(() -> servicio.crear(dto)).isInstanceOf(CategoriaNoEncontradaException.class);
 
 		verify(productoRepositorioPuertoSalida, never()).guardar(any());
 	}
@@ -243,9 +243,15 @@ Fuentes editables en `docs/diagramas/` (formato `.excalidraw`, abrir en [excalid
 - `docs/diagramas/capitulo-02-modelo-grafo-categoria.excalidraw` — nodos `Producto`/`Categoria` y las relaciones `PERTENECE_A`/`RELACIONADO_CON`.
 - `docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw` — secuencia completa del caso de uso "Recomendar Producto".
 
-![Modelo de grafo — Categoría y recomendaciones](docs/images/capitulo-02-modelo-grafo-categoria.png)
+![Modelo de grafo — Categoría y recomendaciones](docs/images/capitulo-02/modelo-grafo-categoria.png)
 
-![Secuencia — Recomendar Producto](docs/images/capitulo-02-secuencia-recomendar-producto.png)
+*Modelo de grafo: nodos `Producto`/`Categoria` y las relaciones `PERTENECE_A`/`RELACIONADO_CON`.*
+
+<br>
+
+![Secuencia — Recomendar Producto](docs/images/capitulo-02/secuencia-recomendar-producto.png)
+
+*Diagrama de secuencia del caso de uso "Recomendar Producto".*
 
 ---
 
@@ -305,7 +311,7 @@ A propósito, este capítulo **no** cubre:
 
 - Entidades internas al agregado (distintas del propio agregado raíz) — sigue sin haber un caso de uso natural que lo pida; candidato: variantes o líneas dentro de un futuro agregado `Pedido`.
 - Eventos de dominio — tiene sentido cuando haya más de un microservicio reaccionando a cambios de `Producto`/`Categoria`.
-- Persistencia políglota, patrón Saga, OpenAPI/Swagger, Vaadin, Prometheus/Grafana — siguen en el roadmap de `CHECKLIST.md`, sin fecha concreta todavía.
+- Persistencia políglota, patrón Saga, OpenAPI/Swagger, Vaadin, Prometheus/Grafana — sin fecha concreta todavía.
 
 ---
 
@@ -321,16 +327,16 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 |:---:|---|---|:---:|
 | 🌱 | [`docs/diagramas/capitulo-02-modelo-grafo-categoria.excalidraw`](docs/diagramas/capitulo-02-modelo-grafo-categoria.excalidraw) | Fuente editable del diagrama de nodos `Producto`/`Categoria` y las relaciones `PERTENECE_A`/`RELACIONADO_CON`. | --- |
 | 🌱 | [`docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw`](docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Recomendar Producto". | --- |
-| 🌱 | [`docs/images/capitulo-02-modelo-grafo-categoria.png`](docs/images/capitulo-02-modelo-grafo-categoria.png) | Render PNG del modelo de grafo, embebido en la [sección 9](#9-diagramas). | --- |
-| 🌱 | [`docs/images/capitulo-02-secuencia-recomendar-producto.png`](docs/images/capitulo-02-secuencia-recomendar-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 9](#9-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-02/modelo-grafo-categoria.png`](docs/images/capitulo-02/modelo-grafo-categoria.png) | Render PNG del modelo de grafo, embebido en la [sección 9](#9-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-02/secuencia-recomendar-producto.png`](docs/images/capitulo-02/secuencia-recomendar-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 9](#9-diagramas). | --- |
 
 ### Dominio
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | 🌱 | [`Categoria.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Categoria.java) | Nuevo agregado raíz: encapsula el nombre de una categoría de productos. | --- |
-| 🌱 | [`CategoriaId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/CategoriaId.java) | Value Object que garantiza que el identificador de la categoría es siempre un UUID válido. | --- |
-| 🌱 | [`CategoriaNoEncontradaExcepcion.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/CategoriaNoEncontradaExcepcion.java) | Excepción de dominio lanzada cuando no existe una categoría con el id solicitado. | --- |
+| 🌱 | [`CategoriaId.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/objetovalor/CategoriaId.java) | Objeto de Valor que garantiza que el identificador de la categoría es siempre un UUID válido. | --- |
+| 🌱 | [`CategoriaNoEncontradaException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/CategoriaNoEncontradaException.java) | Excepción de dominio lanzada cuando no existe una categoría con el id solicitado. | --- |
 | ✏️ | [`Producto.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/Producto.java) | Agregado raíz del producto. | Añade el campo obligatorio `categoriaId` (validado en `crear`) y el método `validarRecomendacion`, que impide que un producto se recomiende a sí mismo. |
 
 ### Aplicación
@@ -351,11 +357,11 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`RecomendarProductoPuertoEntrada.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/entrada/RecomendarProductoPuertoEntrada.java) | Puerto de entrada del caso de uso "recomendar producto". | --- |
 | 🌱 | [`CategoriaRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/CategoriaRepositorioPuertoSalida.java) | Puerto de salida: lo que la aplicación necesita para persistir y leer categorías. | --- |
 | ✏️ | [`ProductoRepositorioPuertoSalida.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/puerto/salida/ProductoRepositorioPuertoSalida.java) | Puerto de salida de productos. | Añade `buscarPorCategoria`, `buscarRecomendados` y `agregarRecomendacion`. |
-| 🌱 | [`BuscarCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarCategoriaServicio.java) | Implementa el caso de uso de búsqueda de categoría; lanza `CategoriaNoEncontradaExcepcion` si no existe. | --- |
+| 🌱 | [`BuscarCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarCategoriaServicio.java) | Implementa el caso de uso de búsqueda de categoría; lanza `CategoriaNoEncontradaException` si no existe. | --- |
 | 🌱 | [`BuscarProductosPorCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductosPorCategoriaServicio.java) | Implementa el caso de uso de listado de productos por categoría. | --- |
 | 🌱 | [`BuscarProductosRecomendadosServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/BuscarProductosRecomendadosServicio.java) | Implementa el caso de uso de listado de productos recomendados. | --- |
 | 🌱 | [`CrearCategoriaServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearCategoriaServicio.java) | Implementa el caso de uso de creación de categoría. | --- |
-| ✏️ | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Implementa el caso de uso de creación de producto. | Ahora valida que la categoría exista (`CategoriaRepositorioPuertoSalida`) antes de crear el producto; lanza `CategoriaNoEncontradaExcepcion` si no. |
+| ✏️ | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Implementa el caso de uso de creación de producto. | Ahora valida que la categoría exista (`CategoriaRepositorioPuertoSalida`) antes de crear el producto; lanza `CategoriaNoEncontradaException` si no. |
 | 🌱 | [`RecomendarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicio.java) | Implementa el caso de uso de recomendación de producto, delegando en `Producto.validarRecomendacion`. | --- |
 
 ### Infraestructura de entrada (REST)
@@ -363,7 +369,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | 🌱 | [`CategoriaController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/CategoriaController.java) | Adaptador REST de categorías: `POST /api/categorias`, `GET /api/categorias/{id}`. | --- |
-| ✏️ | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` que traduce excepciones de dominio a códigos HTTP. | Añade el manejador de `CategoriaNoEncontradaExcepcion` → 404. |
+| ✏️ | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` que traduce excepciones de dominio a códigos HTTP. | Añade el manejador de `CategoriaNoEncontradaException` → 404. |
 | ✏️ | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador REST de productos. | Añade `GET /api/productos?categoriaId=`, `POST /api/productos/{id}/recomendaciones` y `GET /api/productos/{id}/recomendaciones`. |
 
 ### Infraestructura de salida (persistencia Neo4j)
@@ -398,4 +404,4 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 - [Spring Data Neo4j — FAQ (transacciones de escritura por defecto)](https://docs.spring.io/spring-data/neo4j/reference/faq.html)
 - [Spring Boot Reference — NoSQL Data Access (Neo4j)](https://docs.spring.io/spring-boot/4.1.0/reference/data/nosql.html#data.nosql.neo4j)
 
-Ver también [CLAUDE.md](CLAUDE.md) para la convención arquitectónica completa y el modelo de ramas del proyecto, [CHECKLIST.md](CHECKLIST.md) para el estado de tecnologías cubiertas, y el `README.md` de `capitulo-01-fundamentos-ddd-hexagonal` para los fundamentos DDD/Hexagonal que este capítulo da por conocidos.
+Ver también el `README.md` de `capitulo-01-fundamentos-ddd-hexagonal` para los fundamentos DDD/Hexagonal que este capítulo da por conocidos.

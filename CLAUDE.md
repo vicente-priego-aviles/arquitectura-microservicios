@@ -19,12 +19,14 @@ La rama `main` contiene **únicamente el índice general de capítulos** (este `
 - Al terminar un capítulo se comitea en su rama y se actualiza el índice de `main` (tabla de capítulos en `README.md`) con un commit propio en `main`.
 - El `CHECKLIST.md` (tecnologías cubiertas/pendientes) vive en la rama del último capítulo, no en `main`; cada capítulo lo actualiza como parte de su commit.
 - Cada rama de capítulo lleva su propio `README.md` en la raíz explicando qué se construyó, las decisiones de diseño tomadas y cómo probarlo.
+- **Excepción — capítulos de solo documentación**: un capítulo que no aporta código (p. ej. el capítulo 0, que documenta retroactivamente la configuración inicial vía Spring Initializr) parte de `main` como rama independiente en vez de encadenarse al capítulo anterior/siguiente — no hay nada que "acumular" en código, y encadenarlo forzaría reescribir la historia de ramas ya publicadas. Tampoco lleva `CHECKLIST.md` propio (no bifurca el checklist único y acumulativo del resto de capítulos); las capturas pendientes se anotan inline en su `README.md` con `*(Captura pendiente)*`.
 
 ## Convención: registro de archivos por capítulo
 
 El `README.md` de cada rama de capítulo incluye, como **penúltima sección** (justo antes de "Referencias"), una sección **"Registro de archivos del capítulo"** que documenta qué archivos de contenido se crearon, actualizaron o eliminaron en ese capítulo. El índice de la propia rama se actualiza en consecuencia (la sección de referencias pasa a ser la última, un número por delante).
 
-- **Alcance — solo contenido para el lector**: código del microservicio, diagramas (`docs/diagramas`, `docs/images`) y configuración de build específica del capítulo (`pom.xml`, `compose.yaml`, `application.properties`). **Se excluyen**: el propio `README.md` (autorreferencial), `CLAUDE.md` y `CHECKLIST.md` (documentación interna de desarrollo, no dirigida al lector del tutorial), y el scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes` genéricos).
+- **Alcance — solo contenido para el lector**: código del microservicio, diagramas (`docs/diagramas`, `docs/images`) y configuración de build específica del capítulo (`pom.xml`, `compose.yaml`, `application.yml`). **Se excluyen**: el propio `README.md` (autorreferencial), `CLAUDE.md` y `CHECKLIST.md` (documentación interna de desarrollo, no dirigida al lector del tutorial), y el scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes` genéricos).
+- **`docs/images`, un subdirectorio por capítulo**: `docs/images/capitulo-NN/nombre-descriptivo.png` (sin repetir el prefijo `capitulo-NN-` en el nombre de archivo, ya lo aporta la carpeta) — p. ej. `docs/images/capitulo-00/spring-initializr.png`, `docs/images/capitulo-01/arquitectura-hexagonal.png`. Aplica tanto a capturas de pantalla como a renders PNG de diagramas Excalidraw.
 - **Leyenda de iconos**: 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado.
 - **Organización**: subtablas agrupadas por capa arquitectónica (Documentación/diagramas, Build y configuración, Dominio, Aplicación, Infraestructura de entrada, Infraestructura de salida, Tests — ajustar los grupos a lo que aporte cada capítulo), no una única tabla plana.
 - **Columnas de cada tabla**: icono de estado sin título de columna y centrado (para dejar más espacio al resto) · `Archivo` (enlace relativo a la raíz del repo) · `Descripción funcional` (qué hace ese archivo, una línea) · `Descripción del cambio` (solo se rellena en archivos ✏️ actualizados; en 🌱/🗑️ se deja `---` centrado).
@@ -32,11 +34,29 @@ El `README.md` de cada rama de capítulo incluye, como **penúltima sección** (
 
 Ver el `README.md` de la rama `capitulo-01-fundamentos-ddd-hexagonal` (sección 13) como referencia de formato aplicado.
 
+## Convención: notas explicativas en el README
+
+Cuando una aclaración se sale del hilo principal del texto (una matización, una pregunta que anticipa la del lector, un detalle que no todos necesitan leer para seguir la explicación), se introduce como **nota en formato blockquote**, no como párrafo normal ni con negrita inline:
+
+```markdown
+> **Encabezado breve de la nota**
+>
+> Primer párrafo de la nota.
+>
+> Segundo párrafo, si hace falta — cada uno separado por una línea `>` en blanco para que no sea denso de leer.
+```
+
+- **Encabezado obligatorio**: primera línea en negrita, a modo de título corto de la nota (una frase o una pregunta que anticipa lo que el lector se estará preguntando) — nunca se empieza la nota directamente con el cuerpo del texto.
+- **Saltos de línea entre ideas**: si la nota es larga o mezcla varias ideas distintas, separar con una línea `>` vacía entre los párrafos donde tenga sentido el corte — no es obligatorio partir cada frase, solo evitar un único bloque compacto y denso de leer.
+- **Evitar temporalidad ambigua**: para contrastar el estado actual del código frente a una evolución futura, usar "Actualmente" o "Hasta ahora" en vez de "Hoy" (más fácil de confundir con la fecha de escritura del capítulo que con "en el estado actual del código").
+- Ejemplo aplicado: README de `capitulo-01`, sección 6 (nota sobre qué aporta MapStruct cuando el mapeo se escribe a mano) y la nota sobre `@RequiredArgsConstructor` en esa misma sección.
+
 ## Idioma y lenguaje ubicuo
 
 - Todo el contenido que se genera (documentación, commits, comentarios, nombres del modelo de dominio) debe estar **en español**.
-- El **modelo de dominio** (agregados, entidades, value objects, excepciones de dominio, eventos) usa nombres en español siguiendo el lenguaje ubicuo DDD: `Producto`, `Precio`, `ProductoNoEncontradoExcepcion`, etc.
-- Las **capas técnicas/framework** pueden mantener sufijos en inglés cuando es el estándar (`Controller`, `Repository`, `Service`, `DTO`), combinados con el nombre de dominio en español (`ProductoController`, `ProductoRepositorioAdaptador`).
+- El **modelo de dominio** (agregados, entidades, value objects, eventos) usa nombres en español siguiendo el lenguaje ubicuo DDD: `Producto`, `Precio`, etc.
+- Las **capas técnicas/framework** pueden mantener sufijos en inglés cuando es el estándar (`Controller`, `Repository`, `Service`, `DTO`), combinados con el nombre de dominio en español (`ProductoController`, `ProductoRepositorioAdaptador`). Las **excepciones de dominio** siguen esta misma excepción a la regla: sufijo `...Exception` en inglés (no `...Excepcion`), por ser una convención Java tan extendida como `Controller` — combinado con el nombre de dominio en español (`ProductoNoEncontradoException`).
+- **Términos técnicos en el `README.md`**: ver `GLOSARIO.md` para la tabla de traducciones ya fijadas (Agregado/Aggregate, Objeto de Valor/Value Object, Puerto de entrada/Inbound Port, etc.) y la convención a seguir — la primera vez que aparece un término técnico nuevo en el `README.md` de un capítulo, se escribe la traducción al español seguida del término en inglés entre paréntesis (p. ej. "Objeto de Valor (Value Object)"); las siguientes apariciones usan solo la forma en español ya fijada. Si el capítulo introduce un término que no está todavía en `GLOSARIO.md`, se añade esa fila como parte del mismo commit.
 
 ## Convención arquitectónica: Hexagonal + DDD
 
@@ -47,7 +67,7 @@ Esta convención es compartida con el proyecto hermano `sistema-reservas-viaje` 
 | Dominio — agregados | `dominio.modelo.agregado` | — |
 | Dominio — value objects | `dominio.modelo.objetovalor` | `record` |
 | Dominio — entidades internas | `dominio.modelo.entidad` | — |
-| Dominio — excepciones | `dominio.excepcion` | `...Excepcion` |
+| Dominio — excepciones | `dominio.excepcion` | `...Exception` |
 | Dominio — eventos | `dominio.evento` | `...Evento` |
 | Aplicación — puertos de entrada (casos de uso) | `aplicacion.puerto.entrada` | `...PuertoEntrada` |
 | Aplicación — puertos de salida | `aplicacion.puerto.salida` | `...PuertoSalida` |
@@ -77,6 +97,8 @@ El `pom.xml` raíz es el **parent multi-módulo** (`packaging=pom`): centraliza 
 Para añadir un microservicio nuevo: crear el módulo, declararlo en `<modules>` del `pom.xml` raíz, y seguir la misma convención de capas de la tabla anterior.
 
 Microservicio actual: `servicio-catalogo` (Catálogo/Productos, capítulo 1).
+
+**Formato de configuración: YAML, no Properties.** Cada módulo usa `application.yml` (nunca `application.properties`), elegido como formato de configuración desde Spring Initializr al generar el proyecto. Aplica también a cualquier perfil (`application-{profile}.yml`) que se añada en capítulos futuros.
 
 ## Comandos
 

@@ -2,7 +2,7 @@ package com.javacadabra.tienda.catalogo.aplicacion.servicio;
 
 import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.RecomendarProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
-import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoExcepcion;
+import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
@@ -35,7 +35,7 @@ class RecomendarProductoServicioTest {
 		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida);
 		RecomendarProductoDTO dto = new RecomendarProductoDTO(ProductoId.generar().valor());
 
-		assertThatThrownBy(() -> servicio.recomendar(id.valor(), dto)).isInstanceOf(ProductoNoEncontradoExcepcion.class);
+		assertThatThrownBy(() -> servicio.recomendar(id.valor(), dto)).isInstanceOf(ProductoNoEncontradoException.class);
 
 		verify(productoRepositorioPuertoSalida, never()).agregarRecomendacion(any(), any());
 	}

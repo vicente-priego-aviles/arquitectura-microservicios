@@ -4,7 +4,7 @@ import com.javacadabra.tienda.catalogo.aplicacion.dto.salida.CategoriaDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.mapper.CategoriaMapper;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarCategoriaPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.CategoriaRepositorioPuertoSalida;
-import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaExcepcion;
+import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +20,6 @@ public class BuscarCategoriaServicio implements BuscarCategoriaPuertoEntrada {
 	public CategoriaDTO buscarPorId(String id) {
 		return categoriaRepositorioPuertoSalida.buscarPorId(CategoriaId.de(id))
 				.map(categoriaMapper::aDTO)
-				.orElseThrow(() -> new CategoriaNoEncontradaExcepcion(id));
+				.orElseThrow(() -> new CategoriaNoEncontradaException(id));
 	}
 }

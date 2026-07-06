@@ -1,7 +1,7 @@
 package com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.adaptador;
 
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
-import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaExcepcion;
+import com.javacadabra.tienda.catalogo.dominio.excepcion.CategoriaNoEncontradaException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
@@ -28,7 +28,7 @@ public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSa
 		// sobreescribir sus demás propiedades: Spring Data Neo4j guarda todo el grafo
 		// alcanzable desde la raíz al hacer save().
 		var categoriaEntidad = categoriaRepositorioNeo4j.findById(producto.categoriaId().valor())
-				.orElseThrow(() -> new CategoriaNoEncontradaExcepcion(producto.categoriaId().valor()));
+				.orElseThrow(() -> new CategoriaNoEncontradaException(producto.categoriaId().valor()));
 		var entidadGuardada = productoRepositorioNeo4j.save(productoEntidadMapper.aEntidad(producto, categoriaEntidad));
 		return productoEntidadMapper.aDominio(entidadGuardada);
 	}

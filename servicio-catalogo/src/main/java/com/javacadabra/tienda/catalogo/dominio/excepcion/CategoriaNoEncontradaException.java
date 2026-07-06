@@ -1,8 +1,8 @@
 package com.javacadabra.tienda.catalogo.dominio.excepcion;
 
-public class CategoriaNoEncontradaExcepcion extends RuntimeException {
+public class CategoriaNoEncontradaException extends RuntimeException {
 
-	public CategoriaNoEncontradaExcepcion(String id) {
+	public CategoriaNoEncontradaException(String id) {
 		super("No se ha encontrado la categoría con id: " + id);
 	}
 }
