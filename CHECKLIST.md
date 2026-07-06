@@ -28,7 +28,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 - [ ] Métodos de compensación por cada paso de la Saga (deshacer lo ya confirmado si un paso posterior falla)
 
 ## Documentación de API
-- [ ] OpenAPI (Swagger) — especificación + UI interactiva (`springdoc-openapi`) para los endpoints REST de cada microservicio
+- [ ] OpenAPI (Swagger) — especificación + UI interactiva (`springdoc-openapi`) para los endpoints REST de cada microservicio. Candidato natural: el capítulo siguiente a este (relaciones de grafo), motivado por una nota explícita en su README señalando que probar a mano con `curl` el flujo completo (crear categoría → crear productos → recomendar → listar) se vuelve tedioso. Valores de ejemplo en los DTOs de entrada vía `@Schema(example = "...")` para que el estudiante pueda lanzar cada endpoint desde Swagger UI editando solo lo necesario. Incluir también un endpoint (o, más simple, una query Cypher documentada tipo `MATCH (n) DETACH DELETE n`) para vaciar la base de datos entre pruebas y poder repetir el flujo completo desde cero con Swagger
 
 ## Frontend
 - [ ] Vaadin (última versión estable en el momento de implementarlo) — UI web para consumir los microservicios
