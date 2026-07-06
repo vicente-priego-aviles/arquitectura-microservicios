@@ -444,7 +444,7 @@ services:
 2. En la pantalla de conexión: *Connect URL* → `bolt://localhost:7687`, *Username* → `neo4j`, *Password* → `notverysecret` (las mismas credenciales de `NEO4J_AUTH` en `compose.yaml`).
 3. Una vez dentro, la barra superior acepta Cypher directamente. Prueba `MATCH (p:Producto) RETURN p;` y pulsa el botón de ejecutar (▶) — Neo4j Browser dibuja los nodos `:Producto` como un grafo interactivo, mucho más visual que la salida en texto de `cypher-shell`.
 
-![Neo4j Browser mostrando nodos Producto](docs/images/capitulo-01-neo4j-browser.png)
+![Neo4j Browser mostrando nodos Producto](docs/images/capitulo-01/neo4j-browser.png)
 
 *(Captura pendiente)*
 
@@ -512,9 +512,9 @@ Fuentes editables en `docs/diagramas/` (formato `.excalidraw`, abrir en [excalid
 - `docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw` — capas dominio/aplicación/infraestructura y dirección de las dependencias.
 - `docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw` — secuencia completa del caso de uso "Crear Producto".
 
-![Arquitectura Hexagonal — servicio-catalogo](docs/images/capitulo-01-arquitectura-hexagonal.png)
+![Arquitectura Hexagonal — servicio-catalogo](docs/images/capitulo-01/arquitectura-hexagonal.png)
 
-![Secuencia — Crear Producto](docs/images/capitulo-01-secuencia-crear-producto.png)
+![Secuencia — Crear Producto](docs/images/capitulo-01/secuencia-crear-producto.png)
 
 ---
 
@@ -582,8 +582,8 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 |:---:|---|---|:---:|
 | 🌱 | [`docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw`](docs/diagramas/capitulo-01-arquitectura-hexagonal.excalidraw) | Fuente editable del diagrama de capas (dominio/aplicación/infraestructura) y dirección de las dependencias. | --- |
 | 🌱 | [`docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw`](docs/diagramas/capitulo-01-secuencia-crear-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Crear Producto". | --- |
-| 🌱 | [`docs/images/capitulo-01-arquitectura-hexagonal.png`](docs/images/capitulo-01-arquitectura-hexagonal.png) | Render PNG del diagrama de arquitectura hexagonal, embebido en la [sección 10](#10-diagramas). | --- |
-| 🌱 | [`docs/images/capitulo-01-secuencia-crear-producto.png`](docs/images/capitulo-01-secuencia-crear-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 10](#10-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-01/arquitectura-hexagonal.png`](docs/images/capitulo-01/arquitectura-hexagonal.png) | Render PNG del diagrama de arquitectura hexagonal, embebido en la [sección 10](#10-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-01/secuencia-crear-producto.png`](docs/images/capitulo-01/secuencia-crear-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 10](#10-diagramas). | --- |
 
 ### Build y configuración
 
