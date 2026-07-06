@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://excalidraw.com",
+  "source": "https://excalidraw-jetbrains-plugin",
   "elements": [
     {
       "id": "title",
@@ -32,7 +32,7 @@
       "locked": false,
       "text": "Secuencia: Recomendar Producto — servicio-catalogo",
       "fontSize": 28,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle"
     },
@@ -100,7 +100,7 @@
       "locked": false,
       "text": "Cliente",
       "fontSize": 16,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "obj-cliente",
@@ -171,7 +171,7 @@
       "locked": false,
       "text": "ProductoController\n(REST)",
       "fontSize": 15,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "obj-controller",
@@ -242,7 +242,7 @@
       "locked": false,
       "text": "RecomendarProductoServicio\n(aplicación)",
       "fontSize": 15,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "obj-servicio",
@@ -313,7 +313,7 @@
       "locked": false,
       "text": "Producto\n(agregado, dominio)",
       "fontSize": 15,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "obj-dominio",
@@ -384,7 +384,7 @@
       "locked": false,
       "text": "Neo4j\n(vía adaptador)",
       "fontSize": 15,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "obj-neo4j",
@@ -427,7 +427,8 @@
           0,
           650
         ]
-      ]
+      ],
+      "lastCommittedPoint": null
     },
     {
       "id": "life-controller",
@@ -465,7 +466,8 @@
           0,
           650
         ]
-      ]
+      ],
+      "lastCommittedPoint": null
     },
     {
       "id": "life-servicio",
@@ -503,7 +505,8 @@
           0,
           650
         ]
-      ]
+      ],
+      "lastCommittedPoint": null
     },
     {
       "id": "life-dominio",
@@ -541,7 +544,8 @@
           0,
           650
         ]
-      ]
+      ],
+      "lastCommittedPoint": null
     },
     {
       "id": "life-neo4j",
@@ -579,7 +583,8 @@
           0,
           650
         ]
-      ]
+      ],
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-1",
@@ -621,7 +626,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-1-text",
@@ -652,7 +658,7 @@
       "locked": false,
       "text": "1: POST /api/productos/{id}/recomendaciones",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -699,7 +705,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-2-text",
@@ -730,7 +737,7 @@
       "locked": false,
       "text": "2: recomendar(id, dto)",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -766,7 +773,7 @@
       "locked": false,
       "text": "3: buscarPorId(id) y buscarPorId(recomendadoId) vía puerto de salida\n→ ambos productos existen (si no, ProductoNoEncontradoExcepcion)",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top"
     },
@@ -810,7 +817,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-4-text",
@@ -841,7 +849,7 @@
       "locked": false,
       "text": "4: producto.validarRecomendacion(recomendadoId)",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -888,7 +896,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-5-text",
@@ -919,7 +928,7 @@
       "locked": false,
       "text": "5: no lanza excepción → recomendación válida",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -966,7 +975,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-6-text",
@@ -997,7 +1007,7 @@
       "locked": false,
       "text": "6: agregarRecomendacion(id, recomendadoId) — MERGE",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -1044,7 +1054,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-7-text",
@@ -1075,7 +1086,7 @@
       "locked": false,
       "text": "7: relación creada",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -1122,7 +1133,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-8-text",
@@ -1153,7 +1165,7 @@
       "locked": false,
       "text": "8: void",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -1200,7 +1212,8 @@
         ]
       ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "arrow-9-text",
@@ -1231,7 +1244,7 @@
       "locked": false,
       "text": "9: 204 No Content",
       "fontSize": 13,
-      "fontFamily": 5,
+      "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
@@ -1240,8 +1253,8 @@
     }
   ],
   "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": null,
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }
