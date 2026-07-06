@@ -19,6 +19,7 @@ La rama `main` contiene **únicamente el índice general de capítulos** (este `
 - Al terminar un capítulo se comitea en su rama y se actualiza el índice de `main` (tabla de capítulos en `README.md`) con un commit propio en `main`.
 - El `CHECKLIST.md` (tecnologías cubiertas/pendientes) vive en la rama del último capítulo, no en `main`; cada capítulo lo actualiza como parte de su commit.
 - Cada rama de capítulo lleva su propio `README.md` en la raíz explicando qué se construyó, las decisiones de diseño tomadas y cómo probarlo.
+- **Excepción — capítulos de solo documentación**: un capítulo que no aporta código (p. ej. el capítulo 0, que documenta retroactivamente la configuración inicial vía Spring Initializr) parte de `main` como rama independiente en vez de encadenarse al capítulo anterior/siguiente — no hay nada que "acumular" en código, y encadenarlo forzaría reescribir la historia de ramas ya publicadas. Tampoco lleva `CHECKLIST.md` propio (no bifurca el checklist único y acumulativo del resto de capítulos); las capturas pendientes se anotan inline en su `README.md` con `*(Captura pendiente)*`.
 
 ## Idioma y lenguaje ubicuo
 
