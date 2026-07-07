@@ -230,7 +230,7 @@ Con el servicio arrancado, abre `http://localhost:8080/swagger-ui.html`:
 
 <br>
 
-El flujo completo del capítulo 2 (crear categoría → crear productos → recomendar → listar), ahora desde el navegador en vez de con `curl`:
+El flujo completo del capítulo 2 (crear categoría → crear productos → recomendar → listar), ahora desde el navegador en vez de con `curl`. Si vienes de haber seguido el capítulo 2 y todavía tienes categorías/productos en Neo4j, no hace falta borrar nada antes de empezar: cada id nuevo es un UUID recién generado y las consultas de este flujo van siempre acotadas por id, así que los datos antiguos ni interfieren ni aparecen mezclados en las respuestas.
 
 1. **`POST /api/categorias`** → *Try it out* → el body ya trae `{"nombre": "Ropa"}` de ejemplo → *Execute*. Copia el `id` de la respuesta.
 2. **`POST /api/productos`** → pega ese `id` en `categoriaId` (es el único campo que hay que tocar además del que se quiera cambiar de `nombre`/`descripcion`/`precio`) → *Execute*, dos veces, para tener dos productos en la misma categoría. Copia sus dos `id`.
@@ -305,8 +305,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 ## 11. Referencias
 
 - [springdoc-openapi — Getting Started](https://springdoc.org/getting-started.html)
-- [springdoc-openapi — FAQ (respuestas vacías, ocultar esquemas)](https://springdoc.org/faq.html)
-- [springdoc-openapi — Compatibilidad con Spring Boot](https://springdoc.org/faq.html#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot-)
+- [springdoc-openapi — FAQ (respuestas vacías, ocultar esquemas, compatibilidad con Spring Boot)](https://springdoc.org/faq.html)
 - [OpenAPI Specification 3.1](https://spec.openapis.org/oas/v3.1.1)
 
 Ver también el `README.md` de `capitulo-02-relaciones-de-grafo-categoria` para el modelo de grafo y los casos de uso que este capítulo documenta.
