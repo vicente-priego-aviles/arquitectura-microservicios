@@ -4,6 +4,11 @@ import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.CrearCategoriaDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.dto.salida.CategoriaDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarCategoriaPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.CrearCategoriaPuertoEntrada;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +28,20 @@ public class CategoriaController {
 	private final BuscarCategoriaPuertoEntrada buscarCategoriaPuertoEntrada;
 
 	@PostMapping
+	@Operation(operationId = "crearCategoria", summary = "Crea una categoría")
+	@ApiResponse(responseCode = "201", description = "Categoría creada")
 	public ResponseEntity<CategoriaDTO> crear(@RequestBody CrearCategoriaDTO dto) {
 		CategoriaDTO creada = crearCategoriaPuertoEntrada.crear(dto);
 		return ResponseEntity.status(HttpStatus.CREATED).body(creada);
 	}
 
 	@GetMapping("/{id}")
+	@Operation(operationId = "buscarCategoriaPorId", summary = "Busca una categoría por id")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Categoría encontrada"),
+			@ApiResponse(responseCode = "404", description = "No existe una categoría con ese id",
+					content = @Content(schema = @Schema(implementation = String.class)))
+	})
 	public ResponseEntity<CategoriaDTO> buscarPorId(@PathVariable String id) {
 		return ResponseEntity.ok(buscarCategoriaPuertoEntrada.buscarPorId(id));
 	}

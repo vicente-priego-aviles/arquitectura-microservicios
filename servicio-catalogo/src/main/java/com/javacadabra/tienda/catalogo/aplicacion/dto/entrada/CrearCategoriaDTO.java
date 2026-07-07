@@ -1,4 +1,6 @@
 package com.javacadabra.tienda.catalogo.aplicacion.dto.entrada;
 
-public record CrearCategoriaDTO(String nombre) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+public record CrearCategoriaDTO(@Schema(example = "Ropa") String nombre) {
 }

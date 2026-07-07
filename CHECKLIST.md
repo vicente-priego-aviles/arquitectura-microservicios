@@ -28,7 +28,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 - [ ] Métodos de compensación por cada paso de la Saga (deshacer lo ya confirmado si un paso posterior falla)
 
 ## Documentación de API
-- [ ] OpenAPI (Swagger) — especificación + UI interactiva (`springdoc-openapi`) para los endpoints REST de cada microservicio. Candidato natural: el capítulo siguiente a este (relaciones de grafo), motivado por una nota explícita en su README señalando que probar a mano con `curl` el flujo completo (crear categoría → crear productos → recomendar → listar) se vuelve tedioso. Valores de ejemplo en los DTOs de entrada vía `@Schema(example = "...")` para que el estudiante pueda lanzar cada endpoint desde Swagger UI editando solo lo necesario. Incluir también un endpoint (o, más simple, una query Cypher documentada tipo `MATCH (n) DETACH DELETE n`) para vaciar la base de datos entre pruebas y poder repetir el flujo completo desde cero con Swagger
+- [x] OpenAPI (Swagger) — especificación + UI interactiva (`springdoc-openapi`) para los siete endpoints REST de `servicio-catalogo` (capítulo 3). `@ApiResponses` documenta los códigos de estado reales que springdoc-openapi no puede inferir de la firma del método (`201`/`204` en vez del `200` por defecto, y las ramas `400`/`404` de `ControladorErroresGlobal`); `@Schema(example = "...")` en los DTOs de entrada para probar cada endpoint desde Swagger UI editando solo lo necesario; `@OpenAPIDefinition` para el título/versión de la API. Vaciar la base de datos entre pruebas manuales se documenta como una query Cypher (`MATCH (n) DETACH DELETE n` en Neo4j Browser), no como un endpoint nuevo — no hay caso de uso real detrás de esa operación
 
 ## Frontend
 - [ ] Vaadin (última versión estable en el momento de implementarlo) — UI web para consumir los microservicios
@@ -63,7 +63,9 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 Capturas de pantalla de interfaces web que el usuario debe adjuntar manualmente (los diagramas `.excalidraw` no cuentan aquí, esos se renderizan directamente a PNG). Carpeta destino: `docs/images/`. Formato: `.png`.
 
-Las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`) y la del capítulo 2 (`neo4j-browser-grafo-relaciones.png`) ya están adjuntadas. Ninguna pendiente por ahora.
+Las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`) y la del capítulo 2 (`neo4j-browser-grafo-relaciones.png`) ya están adjuntadas.
+
+Pendiente: `docs/images/capitulo-03/swagger-ui.png` — captura de `http://localhost:8080/swagger-ui.html` con `servicio-catalogo` arrancado, mostrando los endpoints de `producto-controller` y `categoria-controller` agrupados por tag.
 
 ## Microservicios candidatos
 - [x] Catálogo/Productos (`servicio-catalogo`)
