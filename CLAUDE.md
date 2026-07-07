@@ -118,7 +118,10 @@ Build tool: Maven, vía wrapper (no requiere instalación local de Maven).
 ./mvnw -pl servicio-catalogo test -Dtest=ProductoTest
 
 # Levantar un microservicio en local (arranca su docker-compose automáticamente)
-./mvnw -pl servicio-catalogo -am spring-boot:run
+# Sin -am: con reactor multi-módulo, -am hace que Maven intente ejecutar
+# spring-boot:run también sobre el POM padre (packaging=pom, sin clase
+# principal) y falla con "Unable to find a suitable main class".
+./mvnw -pl servicio-catalogo spring-boot:run
 ```
 
 ## Notas históricas
