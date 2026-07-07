@@ -17,7 +17,7 @@ Sexto capítulo del tutorial "De cero a pro en arquitectura de microservicios co
 
 ---
 
-## 1. Introducción
+<!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
 
 Los cinco capítulos anteriores construyeron `servicio-catalogo` completo: Agregados con Objetos de Valor, relaciones de grafo en Neo4j, API REST documentada con OpenAPI, eventos de dominio y errores estructurados con `ProblemDetail`. Pero un catálogo de productos por sí solo no es una tienda — falta el otro lado de la transacción: alguien que compra. Este capítulo arranca `servicio-pedidos`, un segundo microservicio con su propio modelo de dominio, un Contexto Delimitado (Bounded Context) aislado del de Catálogo aunque hable del mismo negocio.
 
