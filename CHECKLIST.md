@@ -12,18 +12,25 @@ Orden recomendado para los capítulos 4 en adelante, sujeto a revisión al plani
 4. **Mensajería asíncrona (Kafka)** — los eventos de dominio del capítulo 4 salen del proceso; los consume el microservicio del capítulo 5.
 5. **Patrón Saga + compensación** — con Pedidos+Catálogo (y quizá Pagos) compartiendo una transacción de negocio.
 6. **Observabilidad** (Actuator + Micrometer + Prometheus + Grafana) — con tráfico real entre servicios y mensajería de por medio, hay algo que observar.
+7. **Seguridad: OAuth2/Keycloak/JWT** — proteger los endpoints de ambos microservicios antes de exponer nada a un frontend real o a un gateway público.
+8. **API Gateway/BFF** (Spring Cloud Gateway) — punto de entrada único; centraliza la autenticación del capítulo anterior en vez de repetirla en cada microservicio.
+9. **Frontend: Vaadin** — consume el Gateway, con login real y el flujo de negocio completo (catálogo → carrito → pedido con la Saga del capítulo 8) ya utilizable de principio a fin. No antes: montar una UI cuando el backend aún no tiene ni seguridad ni un flujo de negocio completo daría una demo a medias.
+10. **Carga masiva / exportación de datos: Spring Batch** — caso de uso: importar un catálogo de productos desde un CSV de proveedor (alta masiva) y/o exportar periódicamente el catálogo a un sistema externo de reporting; job disparado vía endpoint REST o `@Scheduled`, sin servidor de orquestación aparte. **No Spring Cloud Data Flow**: Broadcom descatalogó su versión open-source en abril de 2025 (2.11.x fue la última release libre; desarrollo futuro solo para clientes Tanzu Spring de pago) — no tiene sentido enseñar una herramienta que el lector no podría usar sin licencia comercial.
+11. **CI/CD: GitHub Actions** — pipeline de build+test (y despliegue, si procede) para el monorepo, ahora que hay suficiente superficie (varios servicios, Gateway, Batch) como para que compense automatizarlo.
+
+Fuera de este plan (razonables pero no urgentes frente a lo anterior): Kubernetes/Helm, GitOps, trazas distribuidas/logs centralizados, test de contrato REST.
 
 ## Arquitectura / DDD
 - [x] Arquitectura Hexagonal (puertos de entrada/salida + adaptadores)
 - [x] Agregado + Value Object (`Producto`, `Precio`, `ProductoId`)
-- [ ] Entidades internas al agregado (distintas del propio agregado)
+- [ ] Entidades internas al agregado (distintas del propio agregado) — candidato natural: líneas de pedido dentro del agregado `Pedido` (capítulo 5, ver hoja de ruta), no necesita capítulo propio
 - [ ] Eventos de dominio
 - [x] Relaciones de grafo (Categoría, recomendaciones de producto)
 - [ ] jMolecules (anotaciones DDD)
 
 ## Persistencia
 - [x] Spring Data Neo4j (`servicio-catalogo` — grafo)
-- [ ] Migraciones/seed de datos
+- [ ] Migraciones/seed de datos — misma mecánica que la carga masiva del capítulo 13 (ver hoja de ruta) a menor escala
 - [ ] Persistencia políglota: cada microservicio futuro puede usar el motor más adecuado a su modelo (p. ej. relacional con Spring Data JPA/PostgreSQL, documental con MongoDB, caché con Redis) — se concreta motor a motor según el microservicio
 
 ## Herramientas de código
@@ -33,6 +40,10 @@ Orden recomendado para los capítulos 4 en adelante, sujeto a revisión al plani
 ## Comunicación entre servicios
 - [ ] Cliente REST declarativo: HTTP Service Client de Spring Framework (`@HttpExchange` + `@ImportHttpServices`, sobre `RestClient`) — no OpenFeign: la documentación oficial de Spring Cloud OpenFeign lo da como "feature-complete" (solo bugfixes) y recomienda migrar a esta alternativa, ya soportada de forma nativa en Spring Boot 4.1 sin depender de Spring Cloud
 - [ ] Mensajería asíncrona (Kafka/RabbitMQ)
+- [ ] API Gateway (Spring Cloud Gateway) — punto de entrada único para los microservicios expuestos
+
+## Procesamiento por lotes
+- [ ] Spring Batch (`Job`/`Step`, procesamiento por chunks) — carga masiva de productos desde CSV de proveedor y/o exportación periódica del catálogo a un sistema externo. No Spring Cloud Data Flow (descatalogado como open-source desde abril de 2025, ver hoja de ruta)
 
 ## Consistencia entre microservicios
 - [ ] Patrón Saga (orquestación o coreografía, a decidir cuando haya al menos dos microservicios con transacción compartida — candidato natural: Pedidos + Pagos + Inventario)
