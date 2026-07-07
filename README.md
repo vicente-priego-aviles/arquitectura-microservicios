@@ -14,7 +14,7 @@ Quinto capítulo del tutorial "De cero a pro en arquitectura de microservicios c
 
 ---
 
-## 1. Introducción
+<!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
 
 `ControladorErroresGlobal` (capítulo 1) resuelve el problema de centralizar el manejo de excepciones — un único `@RestControllerAdvice` en vez de un `try/catch` repetido en cada controller — pero lo que envía al cliente es solo el mensaje de la excepción como texto plano: `ResponseEntity<String>` con `excepcion.getMessage()` en el cuerpo. Funciona mientras el único consumidor sea un humano leyendo Swagger UI, pero un texto libre no le sirve de mucho a un cliente programático: no hay forma fiable de distinguir "categoría no encontrada" de "producto no encontrado" sin analizar el propio texto del mensaje, ni de extraer el id que causó el error sin *parsear* una frase pensada para leerse, no para procesarse.
 
