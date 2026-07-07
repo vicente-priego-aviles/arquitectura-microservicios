@@ -2,6 +2,17 @@
 
 Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo. Vive en la rama del último capítulo (no en `main`) y se actualiza en cada capítulo nuevo.
 
+## Hoja de ruta de próximos capítulos (tentativa)
+
+Orden recomendado para los capítulos 4 en adelante, sujeto a revisión al planificar cada uno (como el resto del tutorial, el alcance final de cada capítulo se decide en conversación, no de antemano).
+
+1. **Eventos de dominio** — en proceso, vía `ApplicationEventPublisher`/`@EventListener` de Spring; separa el concepto de "evento de dominio" de la mecánica de transporte antes de ir a mensajería distribuida.
+2. **Segundo microservicio: Carrito/Pedidos** — persistencia políglota (Spring Data JPA/PostgreSQL, para contrastar con el grafo de Neo4j) y llamada síncrona a `servicio-catalogo` vía HTTP Service Client de Spring (`@HttpExchange`/`@ImportHttpServices`, no OpenFeign — ver "Comunicación entre servicios" más abajo).
+3. **Disciplina de tests y arquitectura: ArchUnit + jMolecules + Instancio + DataFaker** — se pospone hasta tener dos microservicios porque el valor de automatizar la disciplina hexagonal (ArchUnit sobre anotaciones jMolecules, vía `jmolecules-archunit`) y de reducir boilerplate de fixtures (Instancio/DataFaker) crece con el número de servicios/agregados a mantener consistentes; con uno solo no compensa el coste de introducirlas.
+4. **Mensajería asíncrona (Kafka)** — los eventos de dominio del capítulo 4 salen del proceso; los consume el microservicio del capítulo 5.
+5. **Patrón Saga + compensación** — con Pedidos+Catálogo (y quizá Pagos) compartiendo una transacción de negocio.
+6. **Observabilidad** (Actuator + Micrometer + Prometheus + Grafana) — con tráfico real entre servicios y mensajería de por medio, hay algo que observar.
+
 ## Arquitectura / DDD
 - [x] Arquitectura Hexagonal (puertos de entrada/salida + adaptadores)
 - [x] Agregado + Value Object (`Producto`, `Precio`, `ProductoId`)
@@ -20,7 +31,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 - [x] Lombok (`@RequiredArgsConstructor` en servicios/adaptadores/controller, `@Getter`+constructores en `ProductoEntidad`, y en el agregado `Producto`: `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` —solo por `id`— y `@Getter @Accessors(fluent = true)` para los getters de solo lectura, que no cambia la firma que ya usaban los mappers; el constructor de `Producto` sigue a mano porque valida invariantes, y en los Value Objects, que son `record`, tampoco aplica. Regla general para cualquier agregado futuro en `CLAUDE.md`)
 
 ## Comunicación entre servicios
-- [ ] Cliente REST / OpenFeign
+- [ ] Cliente REST declarativo: HTTP Service Client de Spring Framework (`@HttpExchange` + `@ImportHttpServices`, sobre `RestClient`) — no OpenFeign: la documentación oficial de Spring Cloud OpenFeign lo da como "feature-complete" (solo bugfixes) y recomienda migrar a esta alternativa, ya soportada de forma nativa en Spring Boot 4.1 sin depender de Spring Cloud
 - [ ] Mensajería asíncrona (Kafka/RabbitMQ)
 
 ## Consistencia entre microservicios
