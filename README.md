@@ -8,8 +8,8 @@ Segundo capítulo del tutorial "De cero a pro en arquitectura de microservicios 
 2. [El nuevo agregado `Categoria`](#2-el-nuevo-agregado-categoria)
 3. [Referenciar otro agregado: `categoriaId`, no `Categoria`](#3-referenciar-otro-agregado-categoriaid-no-categoria)
 4. [Las dos relaciones de grafo](#4-las-dos-relaciones-de-grafo)
-5. [Lección de Spring Data Neo4j 1: el "gotcha" del stub](#5-lección-de-spring-data-neo4j-1-el-gotcha-del-stub)
-6. [Lección de Spring Data Neo4j 2: cuándo NO usar `@Relationship`](#6-lección-de-spring-data-neo4j-2-cuándo-no-usar-relationship)
+5. [Lección de Spring Data Neo4j: la trampa de la entidad fantasma](#5-lección-de-spring-data-neo4j-la-trampa-de-la-entidad-fantasma)
+6. [Lección de Spring Data Neo4j: cuándo NO usar `@Relationship`](#6-lección-de-spring-data-neo4j-cuándo-no-usar-relationship)
 7. [Casos de uso y endpoints REST nuevos](#7-casos-de-uso-y-endpoints-rest-nuevos)
 8. [Testing: un patrón nuevo, tests de servicio con Mockito](#8-testing-un-patrón-nuevo-tests-de-servicio-con-mockito)
 9. [Diagramas](#9-diagramas)
@@ -27,9 +27,9 @@ El capítulo 1 dejó escrito explícitamente qué faltaba: `Categoria` como agre
 Este capítulo añade:
 
 - El agregado `Categoria`, con la misma convención Lombok que `Producto` (capítulo 1, sección 5).
-- Una relación **a-uno obligatoria**: `Producto -[:PERTENECE_A]-> Categoria`.
+- Una relación **muchos-a-uno obligatoria**: `Producto -[:PERTENECE_A]-> Categoria`.
 - Una relación **muchos-a-muchos autorreferente**: `Producto -[:RELACIONADO_CON]-> Producto` (recomendaciones).
-- Dos lecciones de Spring Data Neo4j con valor didáctico propio: un "gotcha" real sobre cómo NO enlazar una relación, y un criterio para decidir cuándo gestionar una relación con Cypher explícito en vez de como campo del agregado.
+- Dos lecciones de Spring Data Neo4j con valor didáctico propio: una trampa real sobre cómo NO enlazar una relación, y un criterio para decidir cuándo gestionar una relación con Cypher explícito en vez de como campo del agregado.
 
 Al terminar este capítulo entenderás por qué un producto referencia su categoría **por id**, no por el objeto agregado completo, y por qué eso tiene consecuencias concretas al persistir en un grafo.
 
@@ -65,7 +65,7 @@ public class Categoria {
 }
 ```
 
-Nada nuevo conceptualmente: es exactamente el mismo patrón que `Producto` (constructor privado + factories `crear`/`reconstruir`, `@Getter @Accessors(fluent = true)` para los getters de solo lectura, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` por id). La regla de Lombok en agregados de `CLAUDE.md` no distingue entre "el primer agregado" y "los siguientes" — se aplica igual a cualquier agregado nuevo.
+Nada nuevo conceptualmente: es exactamente el mismo patrón que `Producto` (constructor privado + factories `crear`/`reconstruir`, `@Getter @Accessors(fluent = true)` para los getters de solo lectura, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` por id). La convención Lombok explicada en el capítulo 1, sección 5, no distingue entre "el primer agregado" y "los siguientes" — se aplica igual a cualquier agregado nuevo.
 
 ---
 
@@ -111,14 +111,14 @@ public ProductoDTO crear(CrearProductoDTO dto) {
 
 | Relación | Cardinalidad | Dirección | Dueño de la relación |
 |---|---|---|---|
-| `PERTENECE_A` | Producto → Categoria (a-uno) | `OUTGOING` | Campo `@Relationship` en `ProductoEntidad` |
+| `PERTENECE_A` | Producto → Categoria (muchos-a-uno) | `OUTGOING` | Campo `@Relationship` en `ProductoEntidad` |
 | `RELACIONADO_CON` | Producto → Producto (muchos-a-muchos, autorreferente) | `OUTGOING` | Cypher explícito (`@Query`), sin campo en la entidad |
 
 La tabla ya adelanta la asimetría entre ambas — es el tema de las secciones 5 y 6.
 
 ---
 
-## 5. Lección de Spring Data Neo4j 1: el "gotcha" del stub
+## 5. Lección de Spring Data Neo4j: la trampa de la entidad fantasma
 
 `ProductoEntidad` modela `PERTENECE_A` como cualquier tutorial de Spring Data Neo4j te enseñaría:
 
@@ -128,23 +128,24 @@ La tabla ya adelanta la asimetría entre ambas — es el tema de las secciones 5
 private CategoriaEntidad categoria;
 ```
 
-El problema aparece al guardar. Spring Data Neo4j, según su propia documentación, guarda **todo el grafo alcanzable desde la raíz** en cada `save()`. Si construyéramos un "stub" con solo el id relleno para enlazar la relación:
+El problema aparece al guardar. Spring Data Neo4j, según su propia documentación, guarda **todo el grafo alcanzable desde la raíz** en cada `save()`. Si construyéramos una "entidad fantasma" con solo el id relleno para enlazar la relación:
 
 ```java
 // ❌ NO HACER ESTO
-var categoriaStub = new CategoriaEntidad(producto.categoriaId().valor(), null);
-productoRepositorioNeo4j.save(new ProductoEntidad(..., categoriaStub));
+var categoriaFantasma = new CategoriaEntidad(producto.categoriaId().valor(), null);
+productoRepositorioNeo4j.save(new ProductoEntidad(..., categoriaFantasma));
 ```
 
-Spring Data Neo4j guardaría también ese nodo `Categoria` — y como su campo `nombre` es `null` en el stub, **sobreescribiría el nombre real de la categoría con `null`** en la base de datos. No es un fallo silencioso menor: borra datos de otro agregado sin que el código lo diga en ningún sitio.
+Spring Data Neo4j guardaría también ese nodo `Categoria` — y como su campo `nombre` es `null` en la entidad fantasma, **sobreescribiría el nombre real de la categoría con `null`** en la base de datos. No es un fallo silencioso menor: borra datos de otro agregado sin que el código lo diga en ningún sitio.
 
 La solución, en `ProductoRepositorioAdaptador`:
 
 ```java
+// infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java
 @Override
 public Producto guardar(Producto producto) {
-	// Se resuelve la CategoriaEntidad real (no un stub con solo el id) para no
-	// sobreescribir sus demás propiedades: Spring Data Neo4j guarda todo el grafo
+	// Se resuelve la CategoriaEntidad real (no una entidad fantasma con solo el id) para no
+	// sobreescribir sus otras propiedades: Spring Data Neo4j guarda todo el grafo
 	// alcanzable desde la raíz al hacer save().
 	var categoriaEntidad = categoriaRepositorioNeo4j.findById(producto.categoriaId().valor())
 			.orElseThrow(() -> new CategoriaNoEncontradaException(producto.categoriaId().valor()));
@@ -159,7 +160,7 @@ El test `guardarDosProductosEnLaMismaCategoriaNoSobrescribeElNombreDeLaCategoria
 
 ---
 
-## 6. Lección de Spring Data Neo4j 2: cuándo NO usar `@Relationship`
+## 6. Lección de Spring Data Neo4j: cuándo NO usar `@Relationship`
 
 `RELACIONADO_CON` (recomendaciones) **no** es un campo `@Relationship` en `ProductoEntidad`. Se gestiona con Cypher explícito en el repositorio:
 
@@ -172,6 +173,12 @@ List<ProductoEntidad> buscarRecomendados(@Param("productoId") String productoId)
 @Query("MATCH (p:Producto {id: $productoId}), (rec:Producto {id: $recomendadoId}) MERGE (p)-[:RELACIONADO_CON]->(rec)")
 void agregarRecomendacion(@Param("productoId") String productoId, @Param("recomendadoId") String recomendadoId);
 ```
+
+> **¿Cómo se lee la consulta de `buscarRecomendados`?**
+>
+> Encadena dos saltos. Primero `(:Producto {id: $productoId})-[:RELACIONADO_CON]->(rec:Producto)`: parte del producto de origen (sin variable, no hace falta devolverlo) y llega a cada producto recomendado, nombrado `rec`. Después `(rec)-[r:PERTENECE_A]->(c:Categoria)` sigue también, desde cada `rec`, su relación con su categoría, capturando la relación en `r` y el nodo en `c`.
+>
+> `RETURN rec, collect(r), collect(c)` agrupa esa relación y ese nodo en listas por cada `rec` devuelto. No es un capricho de estilo: sin ese `collect`, Spring Data Neo4j no sabría reconstruir el campo `categoria` de cada `ProductoEntidad` recomendado (más detalle en el porqué, justo después de los dos motivos de esta sección).
 
 Dos motivos para esta decisión, no solo uno:
 
@@ -186,7 +193,7 @@ Dos motivos para esta decisión, no solo uno:
    }
    ```
 
-Nótese que `buscarRecomendados` también trae la relación `PERTENECE_A` de cada producto recomendado (`collect(r), collect(c)`) — porque el agregado `Producto` exige un `categoriaId` no nulo ([sección 3](#3-referenciar-otro-agregado-categoriaid-no-categoria)), así que **cualquier** query Cypher que reconstruya un `Producto` tiene que traer también su categoría, o el mapeo fallaría. Es el mismo patrón `RETURN nodo, collect(relación), collect(nodoRelacionado)` que recomienda la documentación oficial de Spring Data Neo4j para poblar relaciones en consultas custom, aplicado a que la reconstrucción del agregado no rompa su propia invariante.
+Nótese que `buscarRecomendados` también trae la relación `PERTENECE_A` de cada producto recomendado (`collect(r), collect(c)`) — porque el agregado `Producto` exige un `categoriaId` no nulo ([sección 3](#3-referenciar-otro-agregado-categoriaid-no-categoria)), así que **cualquier** query Cypher que reconstruya un `Producto` tiene que traer también su relación con la categoría, o el mapeo fallaría. Es el mismo patrón `RETURN nodo, collect(relación), collect(nodoRelacionado)` que recomienda la documentación oficial de Spring Data Neo4j para poblar relaciones en consultas custom, aplicado a que la reconstrucción del agregado no rompa su propia invariante.
 
 `agregarRecomendacion` es una escritura (`MERGE`) sin necesidad de `@Transactional` explícito: Spring Data Neo4j asume que un método de repositorio es de escritura salvo que se marque `readOnly = true` — por eso las dos consultas de lectura sí lo llevan (buena práctica, no requisito de corrección) y la de escritura no.
 
@@ -209,7 +216,7 @@ Un puerto de entrada por caso de uso, igual que en el capítulo 1 — la granula
 
 ## 8. Testing: un patrón nuevo, tests de servicio con Mockito
 
-El capítulo 1 solo tenía dos niveles de test: unitarios de dominio (sin Spring) e integración con Testcontainers (con Neo4j real). Ninguno de los dos cubre las ramas de validación que viven en la capa de **aplicación** — por ejemplo, que `CrearProductoServicio` lance `CategoriaNoEncontradaException` sin llegar a guardar nada. Para eso se añade un tercer nivel: tests de servicio con **Mockito**, mockeando los puertos de salida.
+El capítulo 1 solo tenía dos niveles de test: unitarios de dominio (sin Spring) e integración con Testcontainers (con Neo4j real). Ninguno de los dos cubre las ramas de validación que viven en la capa de **aplicación** — por ejemplo, que `CrearProductoServicio` lance `CategoriaNoEncontradaException` sin llegar a guardar nada. Para eso se añade un tercer nivel: **tests de servicio** con Mockito, mockeando los puertos de salida.
 
 ```java
 // test/.../aplicacion/servicio/CrearProductoServicioTest.java
@@ -280,7 +287,7 @@ P1_ID=$(curl -s -X POST $BASE/productos -H "Content-Type: application/json" \
 P2_ID=$(curl -s -X POST $BASE/productos -H "Content-Type: application/json" \
   -d "{\"nombre\":\"Pantalón\",\"descripcion\":\"Vaquero\",\"precio\":39.99,\"categoriaId\":\"$CATEGORIA_ID\"}" | jq -r .id)
 
-# 3. La categoría conserva su nombre tras el segundo guardado (el "gotcha" de la sección 5)
+# 3. La categoría conserva su nombre tras el segundo guardado (la trampa de la sección 5)
 curl -s $BASE/categorias/$CATEGORIA_ID   # {"nombre":"Ropa", ...}
 
 # 4. Listar productos de la categoría
@@ -301,7 +308,13 @@ curl -s -X POST $BASE/productos/$P1_ID/recomendaciones -H "Content-Type: applica
 curl -s $BASE/categorias/00000000-0000-0000-0000-000000000000
 ```
 
-Y, como en el capítulo 1, puedes confirmar visualmente en Neo4j Browser (`http://localhost:7474`) con `MATCH (p:Producto)-[r]-(x) RETURN p, r, x` que las relaciones `PERTENECE_A` y `RELACIONADO_CON` están ahí.
+Y, como en el capítulo 1, puedes confirmar visualmente en Neo4j Browser (`http://localhost:7474`) con `MATCH (p:Producto)-[r]-(x) RETURN p, r, x` que las relaciones `PERTENECE_A` y `RELACIONADO_CON` están ahí:
+
+![Grafo de productos, categoría y recomendaciones en Neo4j Browser](docs/images/capitulo-02/neo4j-browser-grafo-relaciones.png)
+
+*Resultado de `MATCH (p:Producto)-[r]-(x) RETURN p, r, x` en Neo4j Browser, con las relaciones `PERTENECE_A` y `RELACIONADO_CON` ya creadas.*
+
+<br>
 
 ---
 
@@ -329,6 +342,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw`](docs/diagramas/capitulo-02-secuencia-recomendar-producto.excalidraw) | Fuente editable del diagrama de secuencia del caso de uso "Recomendar Producto". | --- |
 | 🌱 | [`docs/images/capitulo-02/modelo-grafo-categoria.png`](docs/images/capitulo-02/modelo-grafo-categoria.png) | Render PNG del modelo de grafo, embebido en la [sección 9](#9-diagramas). | --- |
 | 🌱 | [`docs/images/capitulo-02/secuencia-recomendar-producto.png`](docs/images/capitulo-02/secuencia-recomendar-producto.png) | Render PNG del diagrama de secuencia, embebido en la [sección 9](#9-diagramas). | --- |
+| 🌱 | [`docs/images/capitulo-02/neo4j-browser-grafo-relaciones.png`](docs/images/capitulo-02/neo4j-browser-grafo-relaciones.png) | Captura de Neo4j Browser con el grafo de relaciones tras el recorrido de extremo a extremo, embebida en la [sección 10](#10-cómo-probarlo-de-extremo-a-extremo). | --- |
 
 ### Dominio
 
@@ -377,13 +391,13 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | 🌱 | [`CategoriaRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/CategoriaRepositorioAdaptador.java) | Adaptador que implementa el puerto de salida de categorías usando `CategoriaRepositorioNeo4j`. | --- |
-| ✏️ | [`ProductoRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java) | Adaptador de persistencia de productos. | Resuelve la `CategoriaEntidad` real (no un stub) antes de guardar, para no sobreescribir sus propiedades ([sección 5](#5-lección-de-spring-data-neo4j-1-el-gotcha-del-stub)); añade `buscarPorCategoria`, `buscarRecomendados` y `agregarRecomendacion`. |
+| ✏️ | [`ProductoRepositorioAdaptador.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/adaptador/ProductoRepositorioAdaptador.java) | Adaptador de persistencia de productos. | Resuelve la `CategoriaEntidad` real (no una entidad fantasma) antes de guardar, para no sobreescribir sus propiedades ([sección 5](#5-lección-de-spring-data-neo4j-la-trampa-de-la-entidad-fantasma)); añade `buscarPorCategoria`, `buscarRecomendados` y `agregarRecomendacion`. |
 | 🌱 | [`CategoriaEntidad.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/entidad/CategoriaEntidad.java) | Entidad de persistencia (`@Node`) que representa `Categoria` como nodo del grafo Neo4j. | --- |
 | ✏️ | [`ProductoEntidad.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/entidad/ProductoEntidad.java) | Entidad de persistencia de producto. | Añade el campo `categoria` con `@Relationship(type = "PERTENECE_A", direction = OUTGOING)`. |
 | 🌱 | [`CategoriaEntidadMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/mapper/CategoriaEntidadMapper.java) | Mapper MapStruct entre `CategoriaEntidad` y el agregado `Categoria`. | --- |
 | ✏️ | [`ProductoEntidadMapper.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/mapper/ProductoEntidadMapper.java) | Mapper MapStruct entre `ProductoEntidad` y `Producto`. | `aEntidad` recibe ahora la `CategoriaEntidad` a enlazar; `aDominio` reconstruye `categoriaId` a partir de la relación. |
 | 🌱 | [`CategoriaRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/CategoriaRepositorioNeo4j.java) | Repositorio Spring Data (`Neo4jRepository`) con las operaciones CRUD básicas de categoría. | --- |
-| ✏️ | [`ProductoRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/ProductoRepositorioNeo4j.java) | Repositorio Spring Data de producto. | Añade `buscarPorCategoriaId`, `buscarRecomendados` y `agregarRecomendacion` con Cypher explícito (`@Query`), ver [sección 6](#6-lección-de-spring-data-neo4j-2-cuándo-no-usar-relationship). |
+| ✏️ | [`ProductoRepositorioNeo4j.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/repositorio/ProductoRepositorioNeo4j.java) | Repositorio Spring Data de producto. | Añade `buscarPorCategoriaId`, `buscarRecomendados` y `agregarRecomendacion` con Cypher explícito (`@Query`), ver [sección 6](#6-lección-de-spring-data-neo4j-cuándo-no-usar-relationship). |
 
 ### Tests
 
@@ -394,7 +408,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 | 🌱 | [`CategoriaTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/CategoriaTest.java) | Tests unitarios de las invariantes del agregado `Categoria`. | --- |
 | ✏️ | [`ProductoTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/dominio/modelo/agregado/ProductoTest.java) | Tests unitarios de las invariantes del agregado `Producto`. | Añade casos para `categoriaId` obligatorio y para `validarRecomendacion` (un producto no puede recomendarse a sí mismo). |
 | 🌱 | [`CategoriaRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/CategoriaRepositorioAdaptadorIntegrationTest.java) | Test de integración con Neo4j real (Testcontainers) del adaptador de categoría. | --- |
-| ✏️ | [`ProductoRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/ProductoRepositorioAdaptadorIntegrationTest.java) | Test de integración con Neo4j real del adaptador de producto. | Añade el caso `guardarDosProductosEnLaMismaCategoriaNoSobrescribeElNombreDeLaCategoria`, que reproduce el "gotcha" del stub ([sección 5](#5-lección-de-spring-data-neo4j-1-el-gotcha-del-stub)). |
+| ✏️ | [`ProductoRepositorioAdaptadorIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/salida/persistencia/ProductoRepositorioAdaptadorIntegrationTest.java) | Test de integración con Neo4j real del adaptador de producto. | Añade el caso `guardarDosProductosEnLaMismaCategoriaNoSobrescribeElNombreDeLaCategoria`, que reproduce la trampa de la entidad fantasma ([sección 5](#5-lección-de-spring-data-neo4j-la-trampa-de-la-entidad-fantasma)). |
 
 ---
 

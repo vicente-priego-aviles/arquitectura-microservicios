@@ -24,8 +24,8 @@ public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSa
 
 	@Override
 	public Producto guardar(Producto producto) {
-		// Se resuelve la CategoriaEntidad real (no un stub con solo el id) para no
-		// sobreescribir sus demás propiedades: Spring Data Neo4j guarda todo el grafo
+		// Se resuelve la CategoriaEntidad real (no una entidad fantasma con solo el id) para no
+		// sobreescribir sus otras propiedades: Spring Data Neo4j guarda todo el grafo
 		// alcanzable desde la raíz al hacer save().
 		var categoriaEntidad = categoriaRepositorioNeo4j.findById(producto.categoriaId().valor())
 				.orElseThrow(() -> new CategoriaNoEncontradaException(producto.categoriaId().valor()));

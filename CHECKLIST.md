@@ -63,7 +63,7 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 Capturas de pantalla de interfaces web que el usuario debe adjuntar manualmente (los diagramas `.excalidraw` no cuentan aquí, esos se renderizan directamente a PNG). Carpeta destino: `docs/images/`. Formato: `.png`.
 
-Ninguna pendiente por ahora — las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`) ya están adjuntadas.
+Las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`) y la del capítulo 2 (`neo4j-browser-grafo-relaciones.png`) ya están adjuntadas. Ninguna pendiente por ahora.
 
 ## Microservicios candidatos
 - [x] Catálogo/Productos (`servicio-catalogo`)
