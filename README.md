@@ -18,7 +18,7 @@ Tercer capítulo del tutorial "De cero a pro en arquitectura de microservicios c
 
 ---
 
-## 1. Introducción
+<!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
 
 `servicio-catalogo` ya tiene, desde el capítulo 1, siete endpoints REST funcionando (productos y categorías). Probarlos a mano con `curl`, como en el capítulo 2, funciona pero se vuelve tedioso en cuanto el flujo encadena varias peticiones (crear categoría → crear productos → recomendar → listar): hay que recordar rutas, formar el JSON del body a mano y copiar ids de una respuesta a la siguiente petición.
 
