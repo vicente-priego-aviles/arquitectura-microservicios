@@ -85,7 +85,7 @@ public static Producto crear(String nombre, String descripcion, Precio precio, C
 El campo es `CategoriaId categoriaId`, **no** `Categoria categoria`. Es una regla general de DDD para relaciones entre agregados: un agregado referencia a otro por su identidad, nunca por el objeto completo. Dos motivos:
 
 1. **Límite de consistencia**: cada agregado es su propia unidad transaccional. Si `Producto` guardara una referencia en memoria a un objeto `Categoria` completo, sería fácil (por accidente) mutar esa `Categoria` a través de un `Producto` y saltarse su propio ciclo de vida.
-2. **Coste**: cargar un `Producto` no debería obligar a cargar (y mantener actualizada) toda una `Categoria` — sobre todo si, como en la [sección 6](#6-lección-de-spring-data-neo4j-2-cuándo-no-usar-relationship), ese producto también tiene una lista de recomendaciones que podría ser grande.
+2. **Coste**: cargar un `Producto` no debería obligar a cargar (y mantener actualizada) toda una `Categoria` — sobre todo si, como en la [sección 6](#6-lección-de-spring-data-neo4j-cuándo-no-usar-relationship), ese producto también tiene una lista de recomendaciones que podría ser grande.
 
 La validación de que esa categoría **existe de verdad** no vive en el dominio (un Objeto de Valor no puede consultar una base de datos), sino en la capa de aplicación:
 
