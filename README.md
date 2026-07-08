@@ -427,7 +427,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 | 🌱 | [`LineaPedido.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/entidad/LineaPedido.java) | Entidad interna al agregado `Pedido`: producto, cantidad y precio unitario congelado de una línea. | --- |
 | 🌱 | [`Pedido.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/agregado/Pedido.java) | Agregado raíz: cliente y líneas de un pedido, con el total calculado. | --- |
 
-### Aplicación
+### Infraestructura de entrada
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
