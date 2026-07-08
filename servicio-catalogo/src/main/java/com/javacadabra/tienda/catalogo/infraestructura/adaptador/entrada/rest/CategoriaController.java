@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,7 +41,7 @@ public class CategoriaController {
 	@ApiResponses({
 			@ApiResponse(responseCode = "200", description = "Categoría encontrada"),
 			@ApiResponse(responseCode = "404", description = "No existe una categoría con ese id",
-					content = @Content(schema = @Schema(implementation = String.class)))
+					content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	public ResponseEntity<CategoriaDTO> buscarPorId(@PathVariable String id) {
 		return ResponseEntity.ok(buscarCategoriaPuertoEntrada.buscarPorId(id));

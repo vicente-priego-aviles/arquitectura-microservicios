@@ -1,14 +1,14 @@
-# Capítulo 04 — Eventos de dominio
+# Capítulo 05 — ProblemDetail (RFC 7807)
 
-Cuarto capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-03-openapi-swagger`: todo lo explicado allí (la documentación OpenAPI/Swagger de los endpoints de productos y categorías) sigue vigente y no se repite aquí. Este capítulo no introduce un microservicio nuevo — sigue trabajando sobre `servicio-catalogo`.
+Quinto capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-04-eventos-dominio`. Este capítulo no introduce un microservicio nuevo — sigue trabajando sobre `servicio-catalogo`.
 
 ## Índice
 
 1. [Introducción](#1-introducción)
-2. [Qué es un Evento de Dominio](#2-qué-es-un-evento-de-dominio)
-3. [Publicar el evento: `ApplicationEventPublisher`](#3-publicar-el-evento-applicationeventpublisher)
-4. [Consumir el evento: `@EventListener`](#4-consumir-el-evento-eventlistener)
-5. [Cómo probarlo: el flujo del capítulo 3, con logs nuevos](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos)
+2. [Detalles del Problema (Problem Details): la RFC detrás de `ProblemDetail`](#2-detalles-del-problema-problem-details-la-rfc-detrás-de-problemdetail)
+3. [`ControladorErroresGlobal`: de texto plano a `ProblemDetail`](#3-controladorerroresglobal-de-texto-plano-a-problemdetail)
+4. [Actualizar las anotaciones Swagger del capítulo 3](#4-actualizar-las-anotaciones-swagger-del-capítulo-3)
+5. [Cómo probarlo](#5-cómo-probarlo)
 6. [Registro de archivos del capítulo](#6-registro-de-archivos-del-capítulo)
 7. [Referencias](#7-referencias)
 
@@ -16,153 +16,161 @@ Cuarto capítulo del tutorial "De cero a pro en arquitectura de microservicios c
 
 <!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
 
-`CrearProductoServicio` y `RecomendarProductoServicio` (capítulo 1 y 2) hacen exactamente una cosa cada uno: guardar un producto, añadir una recomendación. Eso es correcto mientras nadie más necesite enterarse de que esas cosas ocurrieron. Pero en cuanto aparece un segundo interés — por ejemplo, registrar en el log cada alta de producto, o recalcular algo cuando se añade una recomendación — la forma obvia de resolverlo es meter esa lógica nueva dentro del propio servicio, que a partir de ahí ya no solo crea un producto: también sabe cómo loguearlo, o qué más recalcular. El servicio original crece con cada interés nuevo y termina conociendo detalles que no le corresponden.
+`ControladorErroresGlobal` (capítulo 1) resuelve el problema de centralizar el manejo de excepciones — un único `@RestControllerAdvice` en vez de un `try/catch` repetido en cada controller — pero lo que envía al cliente es solo el mensaje de la excepción como texto plano: `ResponseEntity<String>` con `excepcion.getMessage()` en el cuerpo. Funciona mientras el único consumidor sea un humano leyendo Swagger UI, pero un texto libre no le sirve de mucho a un cliente programático: no hay forma fiable de distinguir "categoría no encontrada" de "producto no encontrado" sin analizar el propio texto del mensaje, ni de extraer el id que causó el error sin *parsear* una frase pensada para leerse, no para procesarse.
 
-Este capítulo introduce el Evento de Dominio (Domain Event): un objeto inmutable que representa algo que ya ha pasado en el dominio (`ProductoCreadoEvento`, `RecomendacionAñadidaEvento`) y que el servicio publica sin saber quién, si alguien, va a reaccionar. Quien esté interesado se suscribe por su cuenta; el servicio que publica el evento no cambia ni una línea cuando aparece un interesado nuevo. La mecánica de este capítulo es deliberadamente la más simple posible: `ApplicationEventPublisher`/`@EventListener` de Spring, eventos que se publican y se consumen dentro del mismo proceso y la misma transacción. El objetivo es separar el concepto — "esto es un evento de dominio, algo relevante que ocurrió" — de su transporte, antes de complicar la mecánica con un broker externo (Kafka, en un capítulo futuro, cuando el evento tenga que salir de este proceso para llegar a otro microservicio).
+Este capítulo sustituye ese texto plano por [Detalles del Problema (Problem Details)](#2-detalles-del-problema-problem-details-la-rfc-detrás-de-problemdetail): un formato estándar y estructurado para modelar errores HTTP, con soporte nativo en Spring desde la versión 6 vía la clase `ProblemDetail`. De paso, las anotaciones Swagger del capítulo 3 que documentaban ese texto plano (`@Schema(implementation = String.class)`) se actualizan para reflejar el nuevo esquema — ver [sección 4](#4-actualizar-las-anotaciones-swagger-del-capítulo-3).
 
 ---
 
-## 2. Qué es un Evento de Dominio
+## 2. Detalles del Problema (Problem Details): la RFC detrás de `ProblemDetail`
 
-Un Evento de Dominio (Domain Event) es un objeto inmutable que representa un hecho que **ya ocurrió** en el dominio. Se nombra en pasado (`ProductoCreadoEvento`, no `CrearProductoEvento`) precisamente para dejar esa diferencia clara frente a otros conceptos con los que se podría confundir:
+Detalles del Problema (Problem Details) es un formato JSON estandarizado para representar errores en APIs HTTP, definido originalmente en la [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) (2016) y sustituido desde 2023 por la [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), que la obsoleta formalmente sin cambiar su forma básica — de ahí que RFC 7807 siga siendo el nombre con el que se identifica al patrón en la práctica, aunque la documentación oficial de Spring ya referencia la 9457. Define cinco campos:
 
-- Un **caso de uso** (`CrearProductoPuertoEntrada.crear(...)`) es una orden: "crea este producto". Puede fallar — de hecho, `CrearProductoServicio` lanza `CategoriaNoEncontradaException` si la categoría no existe.
-- Un **evento de dominio** es un hecho consumado: "este producto ya se creó". Nadie puede rechazarlo ni deshacerlo — solo reaccionar a él. Si `Producto.crear(...)` tuvo éxito, `ProductoCreadoEvento` es simplemente cierto.
+| Campo | Significado |
+|---|---|
+| `type` | URI que identifica el tipo de problema. No hace falta que resuelva a una página real — es un identificador, aunque la RFC recomienda que si se dereferencia, devuelva documentación legible para humanos. Por defecto, `"about:blank"`. |
+| `title` | Resumen corto y legible del tipo de problema, constante para todas las instancias del mismo `type` (a diferencia de `detail`, que sí varía). |
+| `status` | El código de estado HTTP, repetido aquí para que un cliente que solo mira el cuerpo (y no la cabecera HTTP) también lo tenga. |
+| `detail` | Explicación específica de esta instancia del problema — aquí es donde antes iba todo el mensaje de la excepción. |
+| `instance` | URI que identifica esta ocurrencia concreta del problema (típicamente, la ruta de la petición que falló). |
 
-Esa asimetría es la que hace útil el patrón: quien publica el evento (`CrearProductoServicio`) no necesita saber si hay cero, uno o diez interesados reaccionando a él, ni qué hacen — solo publica el hecho. Añadir un interesado nuevo no toca el servicio que publica, al contrario que meter la lógica nueva directamente ahí (el problema descrito en la [introducción](#1-introducción)).
+La RFC permite además **extensiones**: propiedades adicionales, específicas de cada `type`, que viajan al mismo nivel que los cinco campos anteriores (no anidadas). Es el mecanismo que este capítulo usa para incluir, por ejemplo, el id del producto que no se encontró.
 
-Siguiendo la convención de capas de este proyecto, los eventos de dominio viven en su propio paquete, `dominio.evento`, con sufijo `...Evento`:
+Spring Framework modela este formato con la clase `org.springframework.http.ProblemDetail` (desde Spring 6 / Spring Boot 3), con soporte directo en Spring MVC: un método anotado con `@ExceptionHandler` puede devolver un `ProblemDetail` igual que devolvería cualquier otro tipo, y Spring se encarga de serializarlo con `Content-Type: application/problem+json` y de rellenar `instance` automáticamente con la ruta de la petición.
 
-```java
-// dominio/evento/ProductoCreadoEvento.java
-public record ProductoCreadoEvento(ProductoId productoId, Instant ocurridoEn) {
-}
-```
-
-```java
-// dominio/evento/RecomendacionAñadidaEvento.java
-public record RecomendacionAñadidaEvento(ProductoId productoId, ProductoId productoRecomendadoId, Instant ocurridoEn) {
-}
-```
-
-Son `record`, igual que los Objetos de Valor: inmutables por construcción, sin necesidad de ninguna anotación de Lombok. A propósito, ninguno de los dos extiende ninguna clase de Spring (`ApplicationEvent` o similar) — son POJOs del paquete `dominio`, que no conoce el framework. `ApplicationEventPublisher.publishEvent(Object)` (siguiente sección) acepta cualquier objeto desde Spring 4.2, así que no hace falta esa herencia; forzarla acoplaría el propio evento — un concepto de dominio — a la mecánica de transporte que este capítulo quiere mantener separada.
-
-> **¿Por qué llevan solo el id, y no el `Producto` completo?**
+> **¿Por qué no lanzar directamente `ErrorResponseException` en el dominio?**
 >
-> Sería más cómodo para quien escuche el evento recibir el agregado entero — se ahorraría una consulta al repositorio si necesita más datos. Pero eso acopla a cada oyente al estado exacto del agregado en el instante en que se publicó el evento, que puede quedar desactualizado si el oyente reacciona más tarde (por ejemplo, con un listener asíncrono, o cuando el evento viaje fuera de proceso en el capítulo de Kafka). Llevar solo el id obliga a quien lo necesite a volver a consultar el estado actual — más explícito, y ya es el mismo patrón que siguen los puertos de salida de este proyecto: `agregarRecomendacion(ProductoId, ProductoId)` tampoco recibe el `Producto` completo.
+> Spring también ofrece `ErrorResponseException`, una excepción que ya implementa la interfaz `ErrorResponse` y lleva su propio `ProblemDetail` incorporado — lanzarla evitaría el `@ExceptionHandler` por completo, porque `ResponseEntityExceptionHandler` (otra clase de Spring) ya sabe convertirla en la respuesta HTTP. Pero eso obligaría a las excepciones del paquete `dominio.excepcion` a extender una clase de `org.springframework.web`, exactamente el acoplamiento a un framework que la capa de dominio de este proyecto evita en cualquier otra circunstancia (ver `CLAUDE.md`, tabla de capas). Mantener `CategoriaNoEncontradaException`/`ProductoNoEncontradoException` como `RuntimeException` planas y traducirlas a `ProblemDetail` en `ControladorErroresGlobal` — que ya vive en `infraestructura`, la capa que sí conoce Spring — deja esa traducción donde corresponde.
 
 ---
 
-## 3. Publicar el evento: `ApplicationEventPublisher`
+## 3. `ControladorErroresGlobal`: de texto plano a `ProblemDetail`
 
-Publicar un evento de dominio requiere un único colaborador: `ApplicationEventPublisher`, la interfaz de Spring que desacopla a quien publica de quien escucha. `CrearProductoServicio` y `RecomendarProductoServicio` lo reciben como una dependencia más, inyectada igual que sus puertos de salida, y lo llaman justo después de que la operación haya tenido éxito — nunca antes, porque hasta que `guardar(...)`/`agregarRecomendacion(...)` no confirma el cambio, el hecho todavía no "ha ocurrido":
-
-```java
-// CrearProductoServicio
-Producto guardado = productoRepositorioPuertoSalida.guardar(producto);
-applicationEventPublisher.publishEvent(new ProductoCreadoEvento(guardado.id(), Instant.now()));
-return productoMapper.aDTO(guardado);
-```
+Cada `@ExceptionHandler` pasa de devolver `ResponseEntity<String>` a devolver `ProblemDetail`, construido con el factory estático `ProblemDetail.forStatusAndDetail(HttpStatus, String)` y completado con `setType(...)`/`setTitle(...)`/`setProperty(...)`:
 
 ```java
-// RecomendarProductoServicio
-productoRepositorioPuertoSalida.agregarRecomendacion(id, recomendadoId);
-applicationEventPublisher.publishEvent(new RecomendacionAñadidaEvento(id, recomendadoId, Instant.now()));
-```
+@RestControllerAdvice
+public class ControladorErroresGlobal {
 
-`ApplicationEventPublisher` vive en `org.springframework.context`, no en `dominio` ni en `aplicacion.puerto.salida`: es infraestructura de Spring, pero una lo bastante ligera y transversal (viene incluida en cualquier `ApplicationContext`, sin dependencia añadida al `pom.xml`) como para inyectarla directamente en el servicio de aplicación, igual que ya se inyectan `ProductoMapper` o los puertos de salida. No hace falta envolverla en un puerto de salida propio del proyecto: a diferencia de la persistencia (que si cambia de Neo4j a otra base de datos exige un adaptador nuevo), la mecánica de publicar eventos en proceso no va a cambiar mientras siga siendo síncrona y en el mismo proceso — el día que salga del proceso (Kafka, capítulo 6), lo que cambia es la implementación de los *listeners*, no el punto de publicación.
+	private static final URI TIPO_PRODUCTO_NO_ENCONTRADO = URI.create("https://tienda.javacadabra.com/problemas/producto-no-encontrado");
+	private static final URI TIPO_CATEGORIA_NO_ENCONTRADA = URI.create("https://tienda.javacadabra.com/problemas/categoria-no-encontrada");
+	private static final URI TIPO_ARGUMENTO_INVALIDO = URI.create("https://tienda.javacadabra.com/problemas/argumento-invalido");
 
----
+	@ExceptionHandler(ProductoNoEncontradoException.class)
+	public ProblemDetail manejarProductoNoEncontrado(ProductoNoEncontradoException excepcion) {
+		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excepcion.getMessage());
+		problema.setType(TIPO_PRODUCTO_NO_ENCONTRADO);
+		problema.setTitle("Producto no encontrado");
+		problema.setProperty("productoId", excepcion.getId());
+		return problema;
+	}
 
-## 4. Consumir el evento: `@EventListener`
+	@ExceptionHandler(CategoriaNoEncontradaException.class)
+	public ProblemDetail manejarCategoriaNoEncontrada(CategoriaNoEncontradaException excepcion) {
+		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excepcion.getMessage());
+		problema.setType(TIPO_CATEGORIA_NO_ENCONTRADA);
+		problema.setTitle("Categoría no encontrada");
+		problema.setProperty("categoriaId", excepcion.getId());
+		return problema;
+	}
 
-Quien reacciona a un evento no necesita más que un método anotado con `@EventListener` en un bean gestionado por Spring — no implementa ninguna interfaz, no se registra en ningún sitio explícitamente. Spring descubre estos métodos por *classpath scanning* y los invoca automáticamente cuando alguien llama a `publishEvent(...)` con un objeto compatible con el tipo del parámetro:
-
-```java
-// infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java
-@Slf4j
-@Component
-public class ProductoCreadoListener {
-
-	@EventListener
-	public void alCrearProducto(ProductoCreadoEvento evento) {
-		log.info("Producto creado: {}", evento.productoId().valor());
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ProblemDetail manejarArgumentoInvalido(IllegalArgumentException excepcion) {
+		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, excepcion.getMessage());
+		problema.setType(TIPO_ARGUMENTO_INVALIDO);
+		problema.setTitle("Argumento inválido");
+		return problema;
 	}
 }
 ```
 
-Un listener casi idéntico, `RecomendacionAñadidaListener`, reacciona a `RecomendacionAñadidaEvento`. Los dos viven en `infraestructura.adaptador.entrada.evento`, siguiendo la misma convención de capas que ya agrupa los adaptadores de entrada REST bajo `infraestructura.adaptador.entrada.rest`: un `@EventListener` es, en este sentido, un adaptador de entrada más — algo externo (aquí, el propio framework de eventos) dispara comportamiento de la aplicación, igual que una petición HTTP dispara un `@RestController`.
+Dos decisiones de diseño:
 
-Los dos listeners de este capítulo solo escriben un log, deliberadamente — son el ejemplo mínimo de la [introducción](#1-introducción) (loguear cada alta de producto), no una funcionalidad de negocio real. Lo relevante no es lo que hacen, sino que `CrearProductoServicio` y `RecomendarProductoServicio` no saben que existen: se podría añadir un tercer listener, o borrar los dos actuales, sin tocar una sola línea de los servicios que publican los eventos.
+- **`productoId`/`categoriaId` como extensión, no en `detail`**: antes, el id solo existía dentro del texto del mensaje (`"No se ha encontrado el producto con id: " + id`). Para exponerlo como campo estructurado, `ProductoNoEncontradoException`/`CategoriaNoEncontradaException` ganan un campo `id` (con `@Getter` de Lombok) que antes no almacenaban — solo lo usaban para construir el mensaje y lo descartaban.
+- **`manejarArgumentoInvalido` no lleva extensión propia**: a diferencia de los dos anteriores, `IllegalArgumentException` la lanzan varios sitios distintos del dominio (`Precio`, `CategoriaId`, `ProductoId`, `Categoria`, `Producto`) por motivos distintos cada vez — un precio negativo, un nombre vacío, un producto que se recomienda a sí mismo. No hay un campo único y consistente que extraer de todas esas causas, así que este handler se queda con `type`/`title`/`detail`/`status`, sin extensión. Las extensiones son opcionales precisamente por esto: se añaden cuando aportan algo estructurable, no en todos los `type` por sistema.
 
-> **¿Y si el listener lanza una excepción?**
->
-> Con `@EventListener` síncrono (el que usa este capítulo), una excepción en el listener se propaga al hilo que publicó el evento — si `ProductoCreadoListener` fallara, `CrearProductoServicio.crear(...)` fallaría con ella, y (al no haber `@Transactional` explícito de por medio en este capítulo) el producto ya guardado no se deshace automáticamente. Evitar ese acoplamiento entre publicador y oyente — que un listener roto tumbe el caso de uso que publicó el evento — es una de las razones por las que los eventos que cruzan a otro proceso (Kafka, capítulo 6) son la solución habitual: el fallo de un consumidor remoto no puede propagarse de vuelta a quien publicó.
+`instance` no aparece en ningún handler porque Spring lo rellena automáticamente con la ruta de la petición que falló — no hace falta construirlo a mano.
 
 ---
 
-## 5. Cómo probarlo: el flujo del capítulo 3, con logs nuevos
+## 4. Actualizar las anotaciones Swagger del capítulo 3
+
+El capítulo 3 documentó las respuestas `400`/`404` con `@Schema(implementation = String.class)`, porque eso era, literalmente, lo que devolvía `ControladorErroresGlobal`. Con el cambio de la [sección anterior](#3-controladorerroresglobal-de-texto-plano-a-problemdetail), ese esquema ya no es cierto — hay que actualizarlo a `ProblemDetail`, en los dos controllers que documentan ramas de error:
+
+```java
+// ProductoController — antes
+@ApiResponse(responseCode = "404", description = "No existe un producto con ese id",
+		content = @Content(schema = @Schema(implementation = String.class)))
+
+// ProductoController — después
+@ApiResponse(responseCode = "404", description = "No existe un producto con ese id",
+		content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+```
+
+El mismo cambio aplica a las cinco apariciones repartidas entre `ProductoController` (`crear`, `buscarPorId`, `recomendar`) y `CategoriaController` (`buscarPorId`).
+
+> **¿Por qué el esquema generado muestra `properties` como un objeto anidado, si `categoriaId` viaja al mismo nivel que `detail` en la respuesta real?**
+>
+> Es una discrepancia real entre lo que dice el esquema OpenAPI y lo que realmente devuelve el endpoint — vale la pena señalarla para no confundirse leyendo Swagger UI. `ProblemDetail` guarda sus extensiones internamente en un campo `Map<String, Object> properties`, y springdoc-openapi genera el esquema reflejando esa forma interna: `properties` aparece como un objeto anidado más, con `additionalProperties` sin tipar. Pero en tiempo de ejecución, Jackson serializa `ProblemDetail` con un método anotado `@JsonAnyGetter` que "aplana" ese mapa: cada entrada (`categoriaId`, `productoId`) sale como un campo suelto al mismo nivel que `type`/`title`/`detail`, no anidada bajo `"properties": {...}`. La [sección 5](#5-cómo-probarlo) lo muestra con una respuesta real para comparar.
+
+---
+
+## 5. Cómo probarlo
 
 ```bash
 ./mvnw -pl servicio-catalogo spring-boot:run
 ```
 
-> **¿Cómo evito escribir ese comando cada vez, desde IntelliJ?**
->
-> El panel **Maven** (lateral derecho) ya expone `spring-boot:run` como una entrada navegable, sin necesidad de terminal: **Servicio de Catálogo** → **Plugins** → **spring-boot** → clic derecho sobre `spring-boot:run` → **Modify Run Configuration…** → dale un nombre y guarda. Queda disponible en el desplegable de Run/Debug de la barra superior, listo para lanzar con un clic — y sigue siendo el mismo goal Maven que la línea de comandos, así que arranca también el contenedor de Neo4j vía Docker Compose.
->
-> ![Menú contextual sobre spring-boot:run en el panel Maven de IntelliJ](docs/images/capitulo-04/intellij-maven-run-configuration.png)
->
-> *Panel Maven de IntelliJ con el goal `spring-boot:run` del módulo `servicio-catalogo` y la opción "Modify Run Configuration…" del menú contextual.*
->
-> <br>
->
-> Alternativa más rápida en el día a día, porque se salta el ciclo de vida completo de Maven y ejecuta directamente la clase ya compilada: **Run** → **Edit Configurations…** → **+** → **Spring Boot** → **Name** (un nombre descriptivo) y **SDK** (el JDK del proyecto) → **Main class**: `ServicioCatalogoApplication` → **Module**: `servicio-catalogo`. El autoarranque de Neo4j vía `compose.yaml` sigue funcionando igual, porque esa función de Spring Boot se activa por el directorio de trabajo del módulo, no por pasar por el plugin de Maven.
->
-> ![Formulario de Run Configuration de tipo Spring Boot en IntelliJ](docs/images/capitulo-04/intellij-spring-boot-run-configuration.png)
->
-> *Run Configuration de tipo Spring Boot con Name, SDK, Main class y Module ya rellenados.*
+Con el servicio arrancado, una petición a un recurso que no existe ya no devuelve texto plano:
 
-El comportamiento observable desde Swagger UI (`http://localhost:8080/swagger-ui.html`, capítulo 3) no cambia — sigue siendo el mismo flujo crear categoría → crear productos → recomendar del capítulo 2. Lo nuevo de este capítulo no se ve en la respuesta HTTP, sino en la consola donde corre el servicio:
+```bash
+curl -i http://localhost:8080/api/categorias/00000000-0000-0000-0000-000000000000
+```
 
-1. **`POST /api/categorias`** → copia el `id` de la respuesta.
-2. **`POST /api/productos`**, dos veces, con ese `categoriaId` → copia los dos `id` de producto. Cada `Execute` deja en el log una línea nueva:
-   ```
-   c.j.t.c.i.a.e.e.ProductoCreadoListener   : Producto creado: <id-del-producto>
-   ```
-3. **`POST /api/productos/{id}/recomendaciones`** → `id` de la ruta = primer producto, `productoRecomendadoId` del body = segundo producto → `204`, y en el log:
-   ```
-   t.c.i.a.e.e.RecomendacionAñadidaListener : Recomendación añadida: <id-recomendante> recomienda a <id-recomendado>
-   ```
+```http
+HTTP/1.1 404
+Content-Type: application/problem+json
 
-Cada línea aparece justo después de que la petición HTTP correspondiente ya ha respondido — `@EventListener` es síncrono por defecto, así que el listener se ejecuta dentro del mismo hilo y antes de que el servicio termine de procesar la petición, pero después de que el evento se publica (al final del método del servicio de aplicación).
+{
+  "type": "https://tienda.javacadabra.com/problemas/categoria-no-encontrada",
+  "title": "Categoría no encontrada",
+  "status": 404,
+  "detail": "No se ha encontrado la categoría con id: 00000000-0000-0000-0000-000000000000",
+  "instance": "/api/categorias/00000000-0000-0000-0000-000000000000",
+  "categoriaId": "00000000-0000-0000-0000-000000000000"
+}
+```
 
-> **¿Cómo confirmo en Neo4j Browser (`http://localhost:7474`) que los datos del flujo anterior se crearon como se espera?**
->
-> Vista de grafo con todos los nodos y relaciones creados hasta ahora (`Producto`, `Categoria`, `PERTENECE_A`, `RELACIONADO_CON`) — más genérica que asumir de entrada la etiqueta `Producto`, así que también muestra la `Categoria` aunque no tuviera productos:
-> ```cypher
-> MATCH (n)-[r]-(m) RETURN n, r, m
-> ```
->
-> Si prefieres una tabla en vez de un grafo — por ejemplo, para comprobar de un vistazo que cada producto quedó en la categoría correcta y con la recomendación esperada, sin tener que interpretar el dibujo:
-> ```cypher
-> MATCH (p:Producto)-[:PERTENECE_A]->(c:Categoria)
-> OPTIONAL MATCH (p)-[:RELACIONADO_CON]->(r:Producto)
-> RETURN p.nombre AS producto, p.precio AS precio, c.nombre AS categoria, collect(r.nombre) AS recomendados
-> ```
-> El `OPTIONAL MATCH` evita que un producto sin recomendaciones desaparezca de la tabla — con un `MATCH` normal en su lugar, solo aparecerían los productos que ya recomiendan a otro.
->
-> Si solo quieres un recuento — cuántos nodos de cada tipo y cuántas relaciones de cada tipo hay en total, sin listar cada uno:
-> ```cypher
-> MATCH (n) WITH labels(n) AS tipo, count(*) AS total
-> RETURN tipo, total
-> UNION ALL
-> MATCH ()-[r]->() WITH type(r) AS tipo, count(*) AS total
-> RETURN tipo, total
-> ```
-> `labels(n)`/`type(r)` devuelven la etiqueta del nodo y el tipo de la relación respectivamente; el `UNION ALL` combina ambos recuentos en una sola tabla en vez de tener que lanzar dos consultas por separado.
+Nótese `categoriaId` al mismo nivel que el resto de campos — no anidado bajo `properties`, tal como adelanta la nota de la [sección 4](#4-actualizar-las-anotaciones-swagger-del-capítulo-3) — y `Content-Type: application/problem+json`, distinto del `application/json` de una respuesta normal, que le permite a un cliente HTTP detectar que está ante un error estructurado sin necesidad de mirar siquiera el código de estado.
 
-Los tests automatizados cubren esta misma publicación sin necesidad de arrancar el servicio ni leer logs — `CrearProductoServicioTest`/`RecomendarProductoServicioTest` verifican con Mockito que `ApplicationEventPublisher.publishEvent(...)` se invoca con el evento y los datos esperados:
+Un id con formato inválido, en cambio, dispara la rama de `IllegalArgumentException` — sin extensión, como se explicó en la [sección 3](#3-controladorerroresglobal-de-texto-plano-a-problemdetail):
+
+```bash
+curl -i http://localhost:8080/api/categorias/no-es-un-uuid
+```
+
+```http
+HTTP/1.1 400
+Content-Type: application/problem+json
+
+{
+  "type": "https://tienda.javacadabra.com/problemas/argumento-invalido",
+  "title": "Argumento inválido",
+  "status": 400,
+  "detail": "El id de la categoría debe ser un UUID válido: no-es-un-uuid",
+  "instance": "/api/categorias/no-es-un-uuid"
+}
+```
+
+Desde Swagger UI (`http://localhost:8080/swagger-ui.html`, capítulo 3), el esquema `ProblemDetail` ya aparece documentado en las respuestas `400`/`404` de cada endpoint, en vez del `string` del capítulo 3.
+
+![Esquema ProblemDetail documentado en Swagger UI](docs/images/capitulo-05/swagger-ui-problemdetail.png)
+
+*Swagger UI mostrando el esquema `ProblemDetail` (`type`, `title`, `status`, `detail`, `instance`, `properties`) en la respuesta `404` de `GET /api/productos/{id}`.*
+
+<br>
+
+Los tests automatizados existentes (`CrearProductoServicioTest`, `RecomendarProductoServicioTest`, tests de dominio) no verifican el cuerpo de la respuesta HTTP — trabajan a nivel de servicio de aplicación y de dominio, por debajo de `ControladorErroresGlobal` — así que siguen en verde sin cambios:
 
 ```bash
 ./mvnw -pl servicio-catalogo test
@@ -180,42 +188,27 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| 🌱 | [`docs/images/capitulo-04/intellij-maven-run-configuration.png`](docs/images/capitulo-04/intellij-maven-run-configuration.png) | Captura del panel Maven de IntelliJ, embebida en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos). | --- |
-| 🌱 | [`docs/images/capitulo-04/intellij-spring-boot-run-configuration.png`](docs/images/capitulo-04/intellij-spring-boot-run-configuration.png) | Captura de la Run Configuration de tipo Spring Boot, embebida en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos). | --- |
+| 🌱 | [`docs/images/capitulo-05/swagger-ui-problemdetail.png`](docs/images/capitulo-05/swagger-ui-problemdetail.png) | Captura del esquema `ProblemDetail` en Swagger UI, embebida en la [sección 5](#5-cómo-probarlo). | --- |
 
 ### Dominio
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| 🌱 | [`ProductoCreadoEvento.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/evento/ProductoCreadoEvento.java) | Evento de dominio: un producto ha sido creado. | --- |
-| 🌱 | [`RecomendacionAñadidaEvento.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/evento/RecomendacionAñadidaEvento.java) | Evento de dominio: se ha añadido una recomendación entre dos productos. | --- |
+| ✏️ | [`ProductoNoEncontradoException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/ProductoNoEncontradoException.java) | Excepción de dominio: no existe un producto con el id indicado. | Añade el campo `id` (con `@Getter` de Lombok) para exponerlo como extensión del `ProblemDetail`. |
+| ✏️ | [`CategoriaNoEncontradaException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/CategoriaNoEncontradaException.java) | Excepción de dominio: no existe una categoría con el id indicado. | Añade el campo `id` (con `@Getter` de Lombok) para exponerlo como extensión del `ProblemDetail`. |
 
-### Aplicación
-
-| | Archivo | Descripción funcional | Descripción del cambio |
-|:---:|---|---|:---:|
-| ✏️ | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Caso de uso: crear un producto en una categoría existente. | Inyecta `ApplicationEventPublisher` y publica `ProductoCreadoEvento` tras guardar el producto. |
-| ✏️ | [`RecomendarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicio.java) | Caso de uso: añadir una recomendación entre dos productos. | Inyecta `ApplicationEventPublisher` y publica `RecomendacionAñadidaEvento` tras agregar la recomendación. |
-
-### Infraestructura de entrada (eventos)
+### Infraestructura de entrada
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| 🌱 | [`ProductoCreadoListener.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java) | Escucha `ProductoCreadoEvento` y registra en el log cada alta de producto. | --- |
-| 🌱 | [`RecomendacionAñadidaListener.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/evento/RecomendacionAñadidaListener.java) | Escucha `RecomendacionAñadidaEvento` y registra en el log cada recomendación añadida. | --- |
-
-### Tests
-
-| | Archivo | Descripción funcional | Descripción del cambio |
-|:---:|---|---|:---:|
-| ✏️ | [`CrearProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicioTest.java) | Test unitario de `CrearProductoServicio`. | Añade el mock de `ApplicationEventPublisher` y verifica la publicación de `ProductoCreadoEvento` con el id correcto. |
-| ✏️ | [`RecomendarProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicioTest.java) | Test unitario de `RecomendarProductoServicio`. | Añade el mock de `ApplicationEventPublisher` y verifica la publicación de `RecomendacionAñadidaEvento` con los dos ids correctos. |
+| ✏️ | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` centralizado que traduce las excepciones de dominio a respuestas HTTP. | Los tres `@ExceptionHandler` pasan de `ResponseEntity<String>` a `ProblemDetail` (RFC 7807/9457), con `type`/`title` propios por excepción y `productoId`/`categoriaId` como extensión donde aplica. |
+| ✏️ | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador de entrada REST: endpoints de productos. | Las anotaciones `@Schema` de las respuestas `400`/`404` pasan de `implementation = String.class` a `implementation = ProblemDetail.class`. |
+| ✏️ | [`CategoriaController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/CategoriaController.java) | Adaptador de entrada REST: endpoints de categorías. | La anotación `@Schema` de la respuesta `404` pasa de `implementation = String.class` a `implementation = ProblemDetail.class`. |
 
 ---
 
 ## 7. Referencias
 
-- [Spring Framework — Application Events](https://docs.spring.io/spring-framework/reference/core/beans/context-introduction.html#context-functionality-events)
-- [Domain Events (Martin Fowler)](https://martinfowler.com/eaaDev/DomainEvent.html)
-
-Ver también el `README.md` de `capitulo-03-openapi-swagger` para el flujo completo de Swagger UI que este capítulo reutiliza en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos).
+- [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) (obsoleta la RFC 7807, sin cambiar su forma básica)
+- [RFC 7807 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc7807) (RFC original; sigue siendo el nombre por el que se conoce al patrón en la práctica)
+- [Spring Framework — Error Responses (Spring MVC)](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html)

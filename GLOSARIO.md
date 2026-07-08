@@ -26,5 +26,6 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | Adaptador | Adapter | Cognado directo; no requiere glosa en el texto |
 | Repositorio | Repository | Cognado directo; no requiere glosa en el texto |
 | Evento de Dominio | Domain Event | |
+| Detalles del Problema | Problem Details | RFC 9457 (anteriormente RFC 7807); implementado en Spring como la clase `ProblemDetail` |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.

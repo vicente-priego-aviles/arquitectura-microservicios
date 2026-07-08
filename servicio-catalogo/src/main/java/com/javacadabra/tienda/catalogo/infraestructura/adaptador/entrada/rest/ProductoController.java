@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,7 +43,7 @@ public class ProductoController {
 	@ApiResponses({
 			@ApiResponse(responseCode = "201", description = "Producto creado"),
 			@ApiResponse(responseCode = "404", description = "La categoría indicada no existe",
-					content = @Content(schema = @Schema(implementation = String.class)))
+					content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	public ResponseEntity<ProductoDTO> crear(@RequestBody CrearProductoDTO dto) {
 		ProductoDTO creado = crearProductoPuertoEntrada.crear(dto);
@@ -54,7 +55,7 @@ public class ProductoController {
 	@ApiResponses({
 			@ApiResponse(responseCode = "200", description = "Producto encontrado"),
 			@ApiResponse(responseCode = "404", description = "No existe un producto con ese id",
-					content = @Content(schema = @Schema(implementation = String.class)))
+					content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	public ResponseEntity<ProductoDTO> buscarPorId(@PathVariable String id) {
 		return ResponseEntity.ok(buscarProductoPuertoEntrada.buscarPorId(id));
@@ -71,9 +72,9 @@ public class ProductoController {
 	@ApiResponses({
 			@ApiResponse(responseCode = "204", description = "Recomendación añadida", content = @Content),
 			@ApiResponse(responseCode = "400", description = "Un producto no puede recomendarse a sí mismo",
-					content = @Content(schema = @Schema(implementation = String.class))),
+					content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
 			@ApiResponse(responseCode = "404", description = "El producto o el producto recomendado no existen",
-					content = @Content(schema = @Schema(implementation = String.class)))
+					content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	public ResponseEntity<Void> recomendar(@PathVariable String id, @RequestBody RecomendarProductoDTO dto) {
 		recomendarProductoPuertoEntrada.recomendar(id, dto);
