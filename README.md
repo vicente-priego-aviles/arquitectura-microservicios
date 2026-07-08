@@ -17,7 +17,7 @@ Sexto capítulo del tutorial "De cero a pro en arquitectura de microservicios co
 
 ---
 
-<!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
+## 1. Introducción
 
 Los cinco capítulos anteriores construyeron `servicio-catalogo` completo: Agregados con Objetos de Valor, relaciones de grafo en Neo4j, API REST documentada con OpenAPI, eventos de dominio y errores estructurados con `ProblemDetail`. Pero un catálogo de productos por sí solo no es una tienda — falta el otro lado de la transacción: alguien que compra. Este capítulo arranca `servicio-pedidos`, un segundo microservicio con su propio modelo de dominio, un Contexto Delimitado (Bounded Context) aislado del de Catálogo aunque hable del mismo negocio.
 
@@ -404,7 +404,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 | 🌱 | [`docs/images/capitulo-06/dbeaver-pedidos-diagrama.png`](docs/images/capitulo-06/dbeaver-pedidos-diagrama.png) | Captura de la pestaña Diagrama de la tabla `pedidos` en DBeaver, embebida en la [sección 8.2](#82-dbeaver-community). | --- |
 | 🌱 | [`docs/images/capitulo-06/psql-select-pedidos.png`](docs/images/capitulo-06/psql-select-pedidos.png) | Captura de una sesión `psql` ejecutando `SELECT * FROM pedidos`, embebida en la [sección 8.3](#83-psql--línea-de-comandos). | --- |
 
-### Build y configuración
+### Dominio
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
