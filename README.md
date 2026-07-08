@@ -109,7 +109,14 @@ public record ProductoCatalogoRespuesta(String id, String nombre, String descrip
 
 Son dos tipos separados a propósito: `ProductoCatalogoRespuesta` es un detalle de infraestructura (vive en `infraestructura.adaptador.salida.http.cliente`, junto a `CatalogoHttpExchange`) y cambia si cambia el contrato JSON de `servicio-catalogo`; `ProductoCatalogoDTO` es el tipo que ve la capa de aplicación y no debería cambiar solo porque `servicio-catalogo` añada un campo nuevo a su respuesta. El adaptador de la siguiente sección es quien traduce uno en el otro.
 
----
+	@ExceptionHandler(CategoriaNoEncontradaException.class)
+	public ProblemDetail manejarCategoriaNoEncontrada(CategoriaNoEncontradaException excepcion) {
+		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excepcion.getMessage());
+		problema.setType(TIPO_CATEGORIA_NO_ENCONTRADA);
+		problema.setTitle("Categoría no encontrada");
+		problema.setProperty("categoriaId", excepcion.getId());
+		return problema;
+	}
 
 ## 5. El adaptador: mapear la respuesta y traducir el error 404
 
