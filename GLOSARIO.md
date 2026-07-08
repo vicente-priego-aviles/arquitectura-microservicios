@@ -25,5 +25,6 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | Caso de uso | Use Case | |
 | Adaptador | Adapter | Cognado directo; no requiere glosa en el texto |
 | Repositorio | Repository | Cognado directo; no requiere glosa en el texto |
+| Evento de Dominio | Domain Event | |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.

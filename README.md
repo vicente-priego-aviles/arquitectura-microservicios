@@ -1,248 +1,168 @@
-# Capítulo 03 — Documentación de la API con OpenAPI3/Swagger
+# Capítulo 04 — Eventos de dominio
 
-Tercer capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-02-relaciones-de-grafo-categoria`: todo lo explicado allí (el agregado `Categoria`, las relaciones de grafo, las dos lecciones de Spring Data Neo4j) sigue vigente y no se repite aquí. Este capítulo no introduce un microservicio nuevo — completa `servicio-catalogo` documentando con [springdoc-openapi](https://springdoc.org/) los endpoints REST ya existentes de productos y categorías.
+Cuarto capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-03-openapi-swagger`: todo lo explicado allí (la documentación OpenAPI/Swagger de los endpoints de productos y categorías) sigue vigente y no se repite aquí. Este capítulo no introduce un microservicio nuevo — sigue trabajando sobre `servicio-catalogo`.
 
 ## Índice
 
 1. [Introducción](#1-introducción)
-2. [Dependencia: `springdoc-openapi-starter-webmvc-ui`](#2-dependencia-springdoc-openapi-starter-webmvc-ui)
-3. [Lo que ya se documenta solo con la dependencia](#3-lo-que-ya-se-documenta-solo-con-la-dependencia)
-4. [Anotaciones mínimas: corrigiendo los códigos de estado reales](#4-anotaciones-mínimas-corrigiendo-los-códigos-de-estado-reales)
-5. [Ejemplos y descripciones en los DTOs: `@Schema`](#5-ejemplos-y-descripciones-en-los-dtos-schema)
-6. [Metadatos globales de la API: `@OpenAPIDefinition`](#6-metadatos-globales-de-la-api-openapidefinition)
-7. [Endpoints documentados](#7-endpoints-documentados)
-8. [Cómo probarlo: Swagger UI de extremo a extremo](#8-cómo-probarlo-swagger-ui-de-extremo-a-extremo)
-9. [Qué se deja para el capítulo 4](#9-qué-se-deja-para-el-capítulo-4)
-10. [Registro de archivos del capítulo](#10-registro-de-archivos-del-capítulo)
-11. [Referencias](#11-referencias)
+2. [Qué es un Evento de Dominio](#2-qué-es-un-evento-de-dominio)
+3. [Publicar el evento: `ApplicationEventPublisher`](#3-publicar-el-evento-applicationeventpublisher)
+4. [Consumir el evento: `@EventListener`](#4-consumir-el-evento-eventlistener)
+5. [Cómo probarlo: el flujo del capítulo 3, con logs nuevos](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos)
+6. [Registro de archivos del capítulo](#6-registro-de-archivos-del-capítulo)
+7. [Referencias](#7-referencias)
 
 ---
 
 <!-- Contenido del capítulo: se desarrolla en conversación, sección a sección. -->
 
-`servicio-catalogo` ya tiene, desde el capítulo 1, siete endpoints REST funcionando (productos y categorías). Probarlos a mano con `curl`, como en el capítulo 2, funciona pero se vuelve tedioso en cuanto el flujo encadena varias peticiones (crear categoría → crear productos → recomendar → listar): hay que recordar rutas, formar el JSON del body a mano y copiar ids de una respuesta a la siguiente petición.
+`CrearProductoServicio` y `RecomendarProductoServicio` (capítulo 1 y 2) hacen exactamente una cosa cada uno: guardar un producto, añadir una recomendación. Eso es correcto mientras nadie más necesite enterarse de que esas cosas ocurrieron. Pero en cuanto aparece un segundo interés — por ejemplo, registrar en el log cada alta de producto, o recalcular algo cuando se añade una recomendación — la forma obvia de resolverlo es meter esa lógica nueva dentro del propio servicio, que a partir de ahí ya no solo crea un producto: también sabe cómo loguearlo, o qué más recalcular. El servicio original crece con cada interés nuevo y termina conociendo detalles que no le corresponden.
 
-Este capítulo añade una especificación OpenAPI generada automáticamente en tiempo de ejecución (springdoc-openapi lee los `@RestController` existentes, no un fichero YAML/JSON escrito a mano) y una interfaz web interactiva, Swagger UI, para explorar y ejecutar cada endpoint desde el navegador. El foco no es solo "añadir la dependencia" — es entender qué se documenta gratis por convención de Spring MVC y qué necesita una anotación explícita porque no se puede inferir del código.
+Este capítulo introduce el Evento de Dominio (Domain Event): un objeto inmutable que representa algo que ya ha pasado en el dominio (`ProductoCreadoEvento`, `RecomendacionAñadidaEvento`) y que el servicio publica sin saber quién, si alguien, va a reaccionar. Quien esté interesado se suscribe por su cuenta; el servicio que publica el evento no cambia ni una línea cuando aparece un interesado nuevo. La mecánica de este capítulo es deliberadamente la más simple posible: `ApplicationEventPublisher`/`@EventListener` de Spring, eventos que se publican y se consumen dentro del mismo proceso y la misma transacción. El objetivo es separar el concepto — "esto es un evento de dominio, algo relevante que ocurrió" — de su transporte, antes de complicar la mecánica con un broker externo (Kafka, en un capítulo futuro, cuando el evento tenga que salir de este proceso para llegar a otro microservicio).
 
 ---
 
-## 2. Dependencia: `springdoc-openapi-starter-webmvc-ui`
+## 2. Qué es un Evento de Dominio
 
-```xml
-<!-- pom.xml (raíz) -->
-<properties>
-	<springdoc-openapi.version>3.0.3</springdoc-openapi.version>
-</properties>
+Un Evento de Dominio (Domain Event) es un objeto inmutable que representa un hecho que **ya ocurrió** en el dominio. Se nombra en pasado (`ProductoCreadoEvento`, no `CrearProductoEvento`) precisamente para dejar esa diferencia clara frente a otros conceptos con los que se podría confundir:
 
-<dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>org.springdoc</groupId>
-			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>${springdoc-openapi.version}</version>
-		</dependency>
-	</dependencies>
-</dependencyManagement>
+- Un **caso de uso** (`CrearProductoPuertoEntrada.crear(...)`) es una orden: "crea este producto". Puede fallar — de hecho, `CrearProductoServicio` lanza `CategoriaNoEncontradaException` si la categoría no existe.
+- Un **evento de dominio** es un hecho consumado: "este producto ya se creó". Nadie puede rechazarlo ni deshacerlo — solo reaccionar a él. Si `Producto.crear(...)` tuvo éxito, `ProductoCreadoEvento` es simplemente cierto.
+
+Esa asimetría es la que hace útil el patrón: quien publica el evento (`CrearProductoServicio`) no necesita saber si hay cero, uno o diez interesados reaccionando a él, ni qué hacen — solo publica el hecho. Añadir un interesado nuevo no toca el servicio que publica, al contrario que meter la lógica nueva directamente ahí (el problema descrito en la [introducción](#1-introducción)).
+
+Siguiendo la convención de capas de este proyecto, los eventos de dominio viven en su propio paquete, `dominio.evento`, con sufijo `...Evento`:
+
+```java
+// dominio/evento/ProductoCreadoEvento.java
+public record ProductoCreadoEvento(ProductoId productoId, Instant ocurridoEn) {
+}
 ```
 
-```xml
-<!-- servicio-catalogo/pom.xml -->
-<dependency>
-	<groupId>org.springdoc</groupId>
-	<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-</dependency>
+```java
+// dominio/evento/RecomendacionAñadidaEvento.java
+public record RecomendacionAñadidaEvento(ProductoId productoId, ProductoId productoRecomendadoId, Instant ocurridoEn) {
+}
 ```
 
-Versión gestionada centralmente en el `pom.xml` raíz, igual que MapStruct o Testcontainers — la versión concreta se elige una vez y cada módulo hijo solo declara la dependencia sin repetirla.
+Son `record`, igual que los Objetos de Valor: inmutables por construcción, sin necesidad de ninguna anotación de Lombok. A propósito, ninguno de los dos extiende ninguna clase de Spring (`ApplicationEvent` o similar) — son POJOs del paquete `dominio`, que no conoce el framework. `ApplicationEventPublisher.publishEvent(Object)` (siguiente sección) acepta cualquier objeto desde Spring 4.2, así que no hace falta esa herencia; forzarla acoplaría el propio evento — un concepto de dominio — a la mecánica de transporte que este capítulo quiere mantener separada.
 
-> **¿Por qué 3.0.3 y no una versión 2.x?**
+> **¿Por qué llevan solo el id, y no el `Producto` completo?**
 >
-> La matriz de compatibilidad de springdoc-openapi liga cada rama de versión a una rama de Spring Boot: `2.8.x` es la última compatible con Spring Boot 3.5.x, mientras que `3.x.x` es la que soporta Spring Boot 4.x — la versión del `spring-boot-starter-parent` de este monorepo desde el capítulo 0.
-
-`springdoc-openapi-starter-webmvc-ui` empaqueta tres cosas en una sola dependencia: el módulo que inspecciona los `@RestController` (`springdoc-openapi-starter-webmvc-api`), el núcleo común de generación de la especificación (`springdoc-openapi-starter-common`, basado en `swagger-core`) y el propio recurso estático de Swagger UI (`webjars:swagger-ui`). No hace falta declarar ninguno de los tres por separado.
+> Sería más cómodo para quien escuche el evento recibir el agregado entero — se ahorraría una consulta al repositorio si necesita más datos. Pero eso acopla a cada oyente al estado exacto del agregado en el instante en que se publicó el evento, que puede quedar desactualizado si el oyente reacciona más tarde (por ejemplo, con un listener asíncrono, o cuando el evento viaje fuera de proceso en el capítulo de Kafka). Llevar solo el id obliga a quien lo necesite a volver a consultar el estado actual — más explícito, y ya es el mismo patrón que siguen los puertos de salida de este proyecto: `agregarRecomendacion(ProductoId, ProductoId)` tampoco recibe el `Producto` completo.
 
 ---
 
-## 3. Lo que ya se documenta solo con la dependencia
+## 3. Publicar el evento: `ApplicationEventPublisher`
 
-Con la dependencia añadida y **cero anotaciones nuevas**, arrancar el servicio ya expone dos endpoints nuevos por convención de springdoc-openapi:
+Publicar un evento de dominio requiere un único colaborador: `ApplicationEventPublisher`, la interfaz de Spring que desacopla a quien publica de quien escucha. `CrearProductoServicio` y `RecomendarProductoServicio` lo reciben como una dependencia más, inyectada igual que sus puertos de salida, y lo llaman justo después de que la operación haya tenido éxito — nunca antes, porque hasta que `guardar(...)`/`agregarRecomendacion(...)` no confirma el cambio, el hecho todavía no "ha ocurrido":
 
-- `GET /v3/api-docs` — la especificación OpenAPI completa en JSON.
-- `GET /swagger-ui.html` — la interfaz web, servida a partir de esa misma especificación.
+```java
+// CrearProductoServicio
+Producto guardado = productoRepositorioPuertoSalida.guardar(producto);
+applicationEventPublisher.publishEvent(new ProductoCreadoEvento(guardado.id(), Instant.now()));
+return productoMapper.aDTO(guardado);
+```
 
-> **Dos endpoints activados por defecto — un aviso a tener en cuenta**
+```java
+// RecomendarProductoServicio
+productoRepositorioPuertoSalida.agregarRecomendacion(id, recomendadoId);
+applicationEventPublisher.publishEvent(new RecomendacionAñadidaEvento(id, recomendadoId, Instant.now()));
+```
+
+`ApplicationEventPublisher` vive en `org.springframework.context`, no en `dominio` ni en `aplicacion.puerto.salida`: es infraestructura de Spring, pero una lo bastante ligera y transversal (viene incluida en cualquier `ApplicationContext`, sin dependencia añadida al `pom.xml`) como para inyectarla directamente en el servicio de aplicación, igual que ya se inyectan `ProductoMapper` o los puertos de salida. No hace falta envolverla en un puerto de salida propio del proyecto: a diferencia de la persistencia (que si cambia de Neo4j a otra base de datos exige un adaptador nuevo), la mecánica de publicar eventos en proceso no va a cambiar mientras siga siendo síncrona y en el mismo proceso — el día que salga del proceso (Kafka, capítulo 6), lo que cambia es la implementación de los *listeners*, no el punto de publicación.
+
+---
+
+## 4. Consumir el evento: `@EventListener`
+
+Quien reacciona a un evento no necesita más que un método anotado con `@EventListener` en un bean gestionado por Spring — no implementa ninguna interfaz, no se registra en ningún sitio explícitamente. Spring descubre estos métodos por *classpath scanning* y los invoca automáticamente cuando alguien llama a `publishEvent(...)` con un objeto compatible con el tipo del parámetro:
+
+```java
+// infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java
+@Slf4j
+@Component
+public class ProductoCreadoListener {
+
+	@EventListener
+	public void alCrearProducto(ProductoCreadoEvento evento) {
+		log.info("Producto creado: {}", evento.productoId().valor());
+	}
+}
+```
+
+Un listener casi idéntico, `RecomendacionAñadidaListener`, reacciona a `RecomendacionAñadidaEvento`. Los dos viven en `infraestructura.adaptador.entrada.evento`, siguiendo la misma convención de capas que ya agrupa los adaptadores de entrada REST bajo `infraestructura.adaptador.entrada.rest`: un `@EventListener` es, en este sentido, un adaptador de entrada más — algo externo (aquí, el propio framework de eventos) dispara comportamiento de la aplicación, igual que una petición HTTP dispara un `@RestController`.
+
+Los dos listeners de este capítulo solo escriben un log, deliberadamente — son el ejemplo mínimo de la [introducción](#1-introducción) (loguear cada alta de producto), no una funcionalidad de negocio real. Lo relevante no es lo que hacen, sino que `CrearProductoServicio` y `RecomendarProductoServicio` no saben que existen: se podría añadir un tercer listener, o borrar los dos actuales, sin tocar una sola línea de los servicios que publican los eventos.
+
+> **¿Y si el listener lanza una excepción?**
 >
-> Al arrancar, springdoc-openapi registra un `WARN` en el log recordando que ambos endpoints están habilitados por defecto y cómo desactivarlos en producción: `springdoc.api-docs.enabled=false` / `springdoc.swagger-ui.enabled=false`. En un microservicio interno de aprendizaje no hay nada que ocultar, pero es la primera decisión de seguridad real que introduce este capítulo — no forma parte del alcance documentarla más allá de la mención.
-
-Así se ve la especificación generada para `POST /api/productos` sin ninguna anotación en el código (solo la dependencia añadida):
-
-```json
-{
-  "post": {
-    "tags": ["producto-controller"],
-    "operationId": "crear",
-    "requestBody": {
-      "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CrearProductoDTO" } } },
-      "required": true
-    },
-    "responses": {
-      "200": {
-        "description": "OK",
-        "content": { "*/*": { "schema": { "$ref": "#/components/schemas/ProductoDTO" } } }
-      }
-    }
-  }
-}
-```
-
-Lo que springdoc-openapi infirió correctamente, sin que nadie se lo dijera:
-
-- **Ruta y verbo HTTP**: de `@RequestMapping("/api/productos")` + `@PostMapping`.
-- **Esquema del body de entrada y salida**: de los tipos `CrearProductoDTO`/`ProductoDTO` del método del controller — cada `record` se convierte en un `schema` con una propiedad por componente.
-- **Parámetros de ruta y de query**: `@PathVariable`/`@RequestParam` se traducen directamente a `parameters` con su `name` y si son `required`.
-- **`tags`**: agrupa los endpoints por controller (`producto-controller`, `categoria-controller`), derivado del nombre de la clase.
-
-Lo que **no** puede inferir, y por eso está mal en este ejemplo: el código real responde `201 Created` (`ResponseEntity.status(HttpStatus.CREATED)`), pero la especificación documenta `200`. springdoc-openapi no ejecuta el método para ver qué `HttpStatus` construye en tiempo de ejecución — solo ve que el método devuelve un `ResponseEntity<ProductoDTO>`, y `200` es el valor por defecto cuando no hay ninguna anotación que diga lo contrario. Tampoco aparece el `404` que devuelve `ControladorErroresGlobal` cuando la categoría no existe: esa rama vive en una clase distinta (`@RestControllerAdvice`) que springdoc-openapi no asocia automáticamente con el endpoint que la dispara.
-
-Un segundo síntoma del mismo problema, más sutil: `CategoriaController` también tiene un método `crear`, y su `operationId` generado automáticamente sale como `crear_1` — sufijo añadido porque OpenAPI exige `operationId` únicos en toda la especificación y springdoc-openapi solo tiene el nombre del método Java para derivarlo, sin contexto de a qué agregado pertenece.
+> Con `@EventListener` síncrono (el que usa este capítulo), una excepción en el listener se propaga al hilo que publicó el evento — si `ProductoCreadoListener` fallara, `CrearProductoServicio.crear(...)` fallaría con ella, y (al no haber `@Transactional` explícito de por medio en este capítulo) el producto ya guardado no se deshace automáticamente. Evitar ese acoplamiento entre publicador y oyente — que un listener roto tumbe el caso de uso que publicó el evento — es una de las razones por las que los eventos que cruzan a otro proceso (Kafka, capítulo 6) son la solución habitual: el fallo de un consumidor remoto no puede propagarse de vuelta a quien publicó.
 
 ---
 
-## 4. Anotaciones mínimas: corrigiendo los códigos de estado reales
-
-`@ApiResponses`/`@ApiResponse` (paquete `io.swagger.v3.oas.annotations.responses`) documentan explícitamente qué códigos de estado puede devolver un endpoint — la única forma de decírselo a springdoc-openapi, porque esa información vive en la lógica del método (y, en las 404, en `ControladorErroresGlobal`), no en su firma:
-
-```java
-// infraestructura/adaptador/entrada/rest/ProductoController.java
-@PostMapping
-@Operation(operationId = "crearProducto", summary = "Crea un producto en una categoría existente")
-@ApiResponses({
-		@ApiResponse(responseCode = "201", description = "Producto creado"),
-		@ApiResponse(responseCode = "404", description = "La categoría indicada no existe",
-				content = @Content(schema = @Schema(implementation = String.class)))
-})
-public ResponseEntity<ProductoDTO> crear(@RequestBody CrearProductoDTO dto) {
-	// ...
-}
-```
-
-`@Operation(operationId = "crearProducto", ...)` resuelve también la colisión de la [sección 3](#3-lo-que-ya-se-documenta-solo-con-la-dependencia): un `operationId` explícito por endpoint elimina el sufijo `_1` y, de paso, sirve como resumen legible en Swagger UI. La misma pareja de anotaciones se repite en cada endpoint cuyo código real devuelve más de un resultado posible o un código distinto del `200`/`OK` que springdoc-openapi asume por defecto — `POST /api/categorias` (`201`), `GET .../{id}` de ambos controllers (`200`/`404`) y `POST .../recomendaciones` (`204`/`400`/`404`, el caso con más ramas):
-
-```java
-// infraestructura/adaptador/entrada/rest/ProductoController.java
-@PostMapping("/{id}/recomendaciones")
-@Operation(summary = "Añade una recomendación de producto")
-@ApiResponses({
-		@ApiResponse(responseCode = "204", description = "Recomendación añadida", content = @Content),
-		@ApiResponse(responseCode = "400", description = "Un producto no puede recomendarse a sí mismo",
-				content = @Content(schema = @Schema(implementation = String.class))),
-		@ApiResponse(responseCode = "404", description = "El producto o el producto recomendado no existen",
-				content = @Content(schema = @Schema(implementation = String.class)))
-})
-public ResponseEntity<Void> recomendar(@PathVariable String id, @RequestBody RecomendarProductoDTO dto) {
-	// ...
-}
-```
-
-`content = @Content(schema = @Schema(implementation = String.class))` documenta que los errores de `ControladorErroresGlobal` devuelven texto plano (`ResponseEntity<String>`), no un objeto estructurado — refleja el código tal cual es hoy, sin inventar un formato de error que todavía no existe. `content = @Content` a secas (sin `schema`) en el `204` documenta explícitamente que esa respuesta no tiene body, en vez de dejar que springdoc-openapi intente inferir uno del tipo `Void` del método.
-
-En cambio, `GET /api/productos?categoriaId=` y `GET .../{id}/recomendaciones` se quedan **sin ninguna anotación nueva**: ambos solo devuelven `200` en cualquier circunstancia (una lista, vacía si no hay resultados, nunca un error propio) — exactamente lo que springdoc-openapi ya documenta por defecto. Añadir `@ApiResponses` ahí sería anotar por costumbre, no porque el código lo necesite.
-
----
-
-## 5. Ejemplos y descripciones en los DTOs: `@Schema`
-
-`@Schema(example = "...")` en los DTOs de entrada rellena el campo con un valor de ejemplo ya listo en el formulario de Swagger UI, para que probar un endpoint sea editar solo lo que hace falta en vez de escribir el JSON completo a mano:
-
-```java
-// aplicacion/dto/entrada/CrearProductoDTO.java
-public record CrearProductoDTO(
-		@Schema(example = "Camiseta") String nombre,
-		@Schema(example = "100% algodón") String descripcion,
-		@Schema(example = "19.99") BigDecimal precio,
-		@Schema(description = "Id de una categoría ya existente", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6") String categoriaId) {
-}
-```
-
-La anotación va sobre el parámetro del constructor canónico del `record`, no sobre un getter — Java propaga las anotaciones de un parámetro del constructor canónico de un `record` a su componente de acceso implícito, así que springdoc-openapi (a través de `swagger-core`) la ve igual que vería un getter anotado a mano en una clase convencional.
-
-`categoriaId` y `productoRecomendadoId` (en `RecomendarProductoDTO`) usan un UUID de ejemplo con formato válido pero inventado — no apunta a ninguna categoría o producto real, porque esos ids se generan dinámicamente en cada ejecución. El `description` que los acompaña dice explícitamente que hay que sustituirlo por un id ya existente, para que quede claro en Swagger UI que ese campo concreto sí necesita un valor real (ver [sección 8](#8-cómo-probarlo-swagger-ui-de-extremo-a-extremo)).
-
-`CrearCategoriaDTO`, al no tener ninguna referencia a otro agregado, es más simple:
-
-```java
-// aplicacion/dto/entrada/CrearCategoriaDTO.java
-public record CrearCategoriaDTO(@Schema(example = "Ropa") String nombre) {
-}
-```
-
-Los DTOs de **salida** (`ProductoDTO`, `CategoriaDTO`) no llevan `@Schema`: sus valores de ejemplo los pone Swagger UI generándolos a partir del tipo (una cadena vacía, un número en cero), y no hay ningún campo ahí que el estudiante vaya a rellenar a mano — se reciben, no se envían.
-
----
-
-## 6. Metadatos globales de la API: `@OpenAPIDefinition`
-
-Sin configurar nada, `info.title`/`info.version` de la especificación salen como `"OpenAPI definition"` / `"v0"` — un placeholder genérico que springdoc-openapi usa cuando no encuentra una fuente mejor. Una única anotación en la clase de arranque, ya existente, lo sustituye:
-
-```java
-// ServicioCatalogoApplication.java
-@SpringBootApplication
-@OpenAPIDefinition(info = @Info(
-		title = "Servicio de Catálogo",
-		description = "Gestión de productos y categorías del catálogo",
-		version = "v1"))
-public class ServicioCatalogoApplication {
-	// ...
-}
-```
-
-No hace falta una clase de configuración nueva: `@OpenAPIDefinition` funciona sobre cualquier bean gestionado por Spring, y la clase anotada con `@SpringBootApplication` ya lo es. Es la única anotación de este capítulo que no vive en un controller ni en un DTO — describe la API como un todo, no un endpoint concreto.
-
----
-
-## 7. Endpoints documentados
-
-| Endpoint | `operationId` | Respuestas documentadas |
-|---|---|---|
-| `POST /api/categorias` | `crearCategoria` | `201` |
-| `GET /api/categorias/{id}` | `buscarCategoriaPorId` | `200`/`404` |
-| `POST /api/productos` | `crearProducto` | `201`/`404` (categoría inexistente) |
-| `GET /api/productos/{id}` | `buscarProductoPorId` | `200`/`404` |
-| `GET /api/productos?categoriaId=` | `buscarPorCategoria` | `200` (sin anotar — ya era correcto) |
-| `POST /api/productos/{id}/recomendaciones` | `recomendar` | `204`/`400`/`404` |
-| `GET /api/productos/{id}/recomendaciones` | `buscarRecomendados` | `200` (sin anotar — ya era correcto) |
-
-Mismos siete endpoints del capítulo 2 (sección 7 de su `README.md`) — este capítulo no añade ni cambia comportamiento, solo lo documenta.
-
----
-
-## 8. Cómo probarlo: Swagger UI de extremo a extremo
+## 5. Cómo probarlo: el flujo del capítulo 3, con logs nuevos
 
 ```bash
 ./mvnw -pl servicio-catalogo spring-boot:run
 ```
 
-Con el servicio arrancado, abre `http://localhost:8080/swagger-ui.html`:
-
-![Swagger UI de servicio-catalogo](docs/images/capitulo-03/swagger-ui.png)
-
-*Swagger UI mostrando los endpoints de `producto-controller` y `categoria-controller`, agrupados por tag.*
-
-<br>
-
-El flujo completo del capítulo 2 (crear categoría → crear productos → recomendar → listar), ahora desde el navegador en vez de con `curl`. Si vienes de haber seguido el capítulo 2 y todavía tienes categorías/productos en Neo4j, no hace falta borrar nada antes de empezar: cada id nuevo es un UUID recién generado y las consultas de este flujo van siempre acotadas por id, así que los datos antiguos ni interfieren ni aparecen mezclados en las respuestas.
-
-1. **`POST /api/categorias`** → *Try it out* → el body ya trae `{"nombre": "Ropa"}` de ejemplo → *Execute*. Copia el `id` de la respuesta.
-2. **`POST /api/productos`** → pega ese `id` en `categoriaId` (es el único campo que hay que tocar además del que se quiera cambiar de `nombre`/`descripcion`/`precio`) → *Execute*, dos veces, para tener dos productos en la misma categoría. Copia sus dos `id`.
-3. **`POST /api/productos/{id}/recomendaciones`** → `id` de la ruta = primer producto, `productoRecomendadoId` del body = segundo producto → *Execute* → `204`.
-4. **`GET /api/productos/{id}/recomendaciones`** → `id` = primer producto → *Execute* → la lista trae el segundo producto.
-5. Repite el paso 3 con el mismo `id` en la ruta y en el body → `400`, "Un producto no puede recomendarse a sí mismo" — la validación de dominio del capítulo 2 (sección 6 de su `README.md`) sigue intacta, ahora visible directamente en la respuesta de Swagger UI.
-
-> **¿Cómo se vacía la base de datos entre una prueba y la siguiente?**
+> **¿Cómo evito escribir ese comando cada vez, desde IntelliJ?**
 >
-> No hay un endpoint para ello — añadir uno solo para testing manual sería exponer una operación destructiva en la API pública sin ningún caso de uso real detrás. Más simple: abrir Neo4j Browser (`http://localhost:7474`, ver capítulo 1) y ejecutar `MATCH (n) DETACH DELETE n`. Borra todos los nodos y relaciones del grafo, dejando la base vacía para repetir el flujo completo desde el paso 1.
+> El panel **Maven** (lateral derecho) ya expone `spring-boot:run` como una entrada navegable, sin necesidad de terminal: **Servicio de Catálogo** → **Plugins** → **spring-boot** → clic derecho sobre `spring-boot:run` → **Modify Run Configuration…** → dale un nombre y guarda. Queda disponible en el desplegable de Run/Debug de la barra superior, listo para lanzar con un clic — y sigue siendo el mismo goal Maven que la línea de comandos, así que arranca también el contenedor de Neo4j vía Docker Compose.
+>
+> ![Menú contextual sobre spring-boot:run en el panel Maven de IntelliJ](docs/images/capitulo-04/intellij-maven-run-configuration.png)
+>
+> *Panel Maven de IntelliJ con el goal `spring-boot:run` del módulo `servicio-catalogo` y la opción "Modify Run Configuration…" del menú contextual.*
+>
+> <br>
+>
+> Alternativa más rápida en el día a día, porque se salta el ciclo de vida completo de Maven y ejecuta directamente la clase ya compilada: **Run** → **Edit Configurations…** → **+** → **Spring Boot** → **Name** (un nombre descriptivo) y **SDK** (el JDK del proyecto) → **Main class**: `ServicioCatalogoApplication` → **Module**: `servicio-catalogo`. El autoarranque de Neo4j vía `compose.yaml` sigue funcionando igual, porque esa función de Spring Boot se activa por el directorio de trabajo del módulo, no por pasar por el plugin de Maven.
+>
+> ![Formulario de Run Configuration de tipo Spring Boot en IntelliJ](docs/images/capitulo-04/intellij-spring-boot-run-configuration.png)
+>
+> *Run Configuration de tipo Spring Boot con Name, SDK, Main class y Module ya rellenados.*
 
-Los tests automatizados (dominio, servicio, integración) no cambian en este capítulo — ninguna anotación de OpenAPI afecta a la lógica que verifican:
+El comportamiento observable desde Swagger UI (`http://localhost:8080/swagger-ui.html`, capítulo 3) no cambia — sigue siendo el mismo flujo crear categoría → crear productos → recomendar del capítulo 2. Lo nuevo de este capítulo no se ve en la respuesta HTTP, sino en la consola donde corre el servicio:
+
+1. **`POST /api/categorias`** → copia el `id` de la respuesta.
+2. **`POST /api/productos`**, dos veces, con ese `categoriaId` → copia los dos `id` de producto. Cada `Execute` deja en el log una línea nueva:
+   ```
+   c.j.t.c.i.a.e.e.ProductoCreadoListener   : Producto creado: <id-del-producto>
+   ```
+3. **`POST /api/productos/{id}/recomendaciones`** → `id` de la ruta = primer producto, `productoRecomendadoId` del body = segundo producto → `204`, y en el log:
+   ```
+   t.c.i.a.e.e.RecomendacionAñadidaListener : Recomendación añadida: <id-recomendante> recomienda a <id-recomendado>
+   ```
+
+Cada línea aparece justo después de que la petición HTTP correspondiente ya ha respondido — `@EventListener` es síncrono por defecto, así que el listener se ejecuta dentro del mismo hilo y antes de que el servicio termine de procesar la petición, pero después de que el evento se publica (al final del método del servicio de aplicación).
+
+> **¿Cómo confirmo en Neo4j Browser (`http://localhost:7474`) que los datos del flujo anterior se crearon como se espera?**
+>
+> Vista de grafo con todos los nodos y relaciones creados hasta ahora (`Producto`, `Categoria`, `PERTENECE_A`, `RELACIONADO_CON`) — más genérica que asumir de entrada la etiqueta `Producto`, así que también muestra la `Categoria` aunque no tuviera productos:
+> ```cypher
+> MATCH (n)-[r]-(m) RETURN n, r, m
+> ```
+>
+> Si prefieres una tabla en vez de un grafo — por ejemplo, para comprobar de un vistazo que cada producto quedó en la categoría correcta y con la recomendación esperada, sin tener que interpretar el dibujo:
+> ```cypher
+> MATCH (p:Producto)-[:PERTENECE_A]->(c:Categoria)
+> OPTIONAL MATCH (p)-[:RELACIONADO_CON]->(r:Producto)
+> RETURN p.nombre AS producto, p.precio AS precio, c.nombre AS categoria, collect(r.nombre) AS recomendados
+> ```
+> El `OPTIONAL MATCH` evita que un producto sin recomendaciones desaparezca de la tabla — con un `MATCH` normal en su lugar, solo aparecerían los productos que ya recomiendan a otro.
+>
+> Si solo quieres un recuento — cuántos nodos de cada tipo y cuántas relaciones de cada tipo hay en total, sin listar cada uno:
+> ```cypher
+> MATCH (n) WITH labels(n) AS tipo, count(*) AS total
+> RETURN tipo, total
+> UNION ALL
+> MATCH ()-[r]->() WITH type(r) AS tipo, count(*) AS total
+> RETURN tipo, total
+> ```
+> `labels(n)`/`type(r)` devuelven la etiqueta del nodo y el tipo de la relación respectivamente; el `UNION ALL` combina ambos recuentos en una sola tabla en vez de tener que lanzar dos consultas por separado.
+
+Los tests automatizados cubren esta misma publicación sin necesidad de arrancar el servicio ni leer logs — `CrearProductoServicioTest`/`RecomendarProductoServicioTest` verifican con Mockito que `ApplicationEventPublisher.publishEvent(...)` se invoca con el evento y los datos esperados:
 
 ```bash
 ./mvnw -pl servicio-catalogo test
@@ -250,19 +170,9 @@ Los tests automatizados (dominio, servicio, integración) no cambian en este cap
 
 ---
 
-## 9. Qué se deja para el capítulo 4
+## 6. Registro de archivos del capítulo
 
-A propósito, este capítulo **no** cubre:
-
-- Un formato de error estructurado (p. ej. `ProblemDetail`/RFC 7807) para las respuestas `4xx` — `ControladorErroresGlobal` sigue devolviendo texto plano; documentarlo con `@Schema(implementation = String.class)` refleja el código tal cual es hoy, no lo mejora.
-- Seguridad de la API (autenticación en los endpoints, ni en Swagger UI) — sin fecha concreta todavía, candidato natural cuando se aborde OAuth2/Keycloak/JWT.
-- Persistencia políglota, patrón Saga, Vaadin, Prometheus/Grafana — igual que en el capítulo 2, sin fecha concreta.
-
----
-
-## 10. Registro de archivos del capítulo
-
-Tabla de control de los archivos que forman el contenido de este capítulo: código del microservicio y configuración de build. No incluye archivos internos de desarrollo (`CLAUDE.md`, `CHECKLIST.md`) ni scaffolding de herramientas (skills de Claude Code, Maven wrapper, `.gitignore`/`.gitattributes`), que no aportan valor al lector del tutorial.
+Tabla de control de los archivos que forman el contenido de este capítulo.
 
 **Leyenda:** 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
 
@@ -270,42 +180,42 @@ Tabla de control de los archivos que forman el contenido de este capítulo: cód
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| 🌱 | [`docs/images/capitulo-03/swagger-ui.png`](docs/images/capitulo-03/swagger-ui.png) | Captura de Swagger UI con los endpoints documentados, embebida en la [sección 8](#8-cómo-probarlo-swagger-ui-de-extremo-a-extremo). | --- |
+| 🌱 | [`docs/images/capitulo-04/intellij-maven-run-configuration.png`](docs/images/capitulo-04/intellij-maven-run-configuration.png) | Captura del panel Maven de IntelliJ, embebida en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos). | --- |
+| 🌱 | [`docs/images/capitulo-04/intellij-spring-boot-run-configuration.png`](docs/images/capitulo-04/intellij-spring-boot-run-configuration.png) | Captura de la Run Configuration de tipo Spring Boot, embebida en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos). | --- |
 
-### Build y configuración
+### Dominio
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| ✏️ | [`pom.xml`](pom.xml) | POM padre del reactor multi-módulo. | Añade la propiedad `springdoc-openapi.version` y gestiona `springdoc-openapi-starter-webmvc-ui` en `dependencyManagement`. |
-| ✏️ | [`servicio-catalogo/pom.xml`](servicio-catalogo/pom.xml) | POM del microservicio de catálogo. | Añade la dependencia `springdoc-openapi-starter-webmvc-ui` (sin versión explícita, heredada del padre). |
+| 🌱 | [`ProductoCreadoEvento.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/evento/ProductoCreadoEvento.java) | Evento de dominio: un producto ha sido creado. | --- |
+| 🌱 | [`RecomendacionAñadidaEvento.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/evento/RecomendacionAñadidaEvento.java) | Evento de dominio: se ha añadido una recomendación entre dos productos. | --- |
 
 ### Aplicación
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| ✏️ | [`CrearProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/CrearProductoDTO.java) | DTO de entrada para crear un producto. | Añade `@Schema(example = ...)` en sus cuatro componentes. |
-| ✏️ | [`CrearCategoriaDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/CrearCategoriaDTO.java) | DTO de entrada para crear una categoría. | Añade `@Schema(example = "Ropa")` en `nombre`. |
-| ✏️ | [`RecomendarProductoDTO.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/dto/entrada/RecomendarProductoDTO.java) | DTO de entrada con el id del producto recomendado. | Añade `@Schema(description = ..., example = ...)` en `productoRecomendadoId`. |
+| ✏️ | [`CrearProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicio.java) | Caso de uso: crear un producto en una categoría existente. | Inyecta `ApplicationEventPublisher` y publica `ProductoCreadoEvento` tras guardar el producto. |
+| ✏️ | [`RecomendarProductoServicio.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicio.java) | Caso de uso: añadir una recomendación entre dos productos. | Inyecta `ApplicationEventPublisher` y publica `RecomendacionAñadidaEvento` tras agregar la recomendación. |
 
-### Infraestructura de entrada (REST)
-
-| | Archivo | Descripción funcional | Descripción del cambio |
-|:---:|---|---|:---:|
-| ✏️ | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador REST de productos. | Añade `@Operation`/`@ApiResponses` en sus cinco endpoints, documentando los códigos de estado reales (ver [sección 4](#4-anotaciones-mínimas-corrigiendo-los-códigos-de-estado-reales)). |
-| ✏️ | [`CategoriaController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/CategoriaController.java) | Adaptador REST de categorías. | Añade `@Operation`/`@ApiResponses` en sus dos endpoints. |
-
-### Arranque de la aplicación
+### Infraestructura de entrada (eventos)
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| ✏️ | [`ServicioCatalogoApplication.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/ServicioCatalogoApplication.java) | Clase de arranque de Spring Boot. | Añade `@OpenAPIDefinition(info = ...)` con el título, la descripción y la versión de la API. |
+| 🌱 | [`ProductoCreadoListener.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java) | Escucha `ProductoCreadoEvento` y registra en el log cada alta de producto. | --- |
+| 🌱 | [`RecomendacionAñadidaListener.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/evento/RecomendacionAñadidaListener.java) | Escucha `RecomendacionAñadidaEvento` y registra en el log cada recomendación añadida. | --- |
+
+### Tests
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| ✏️ | [`CrearProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/CrearProductoServicioTest.java) | Test unitario de `CrearProductoServicio`. | Añade el mock de `ApplicationEventPublisher` y verifica la publicación de `ProductoCreadoEvento` con el id correcto. |
+| ✏️ | [`RecomendarProductoServicioTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/aplicacion/servicio/RecomendarProductoServicioTest.java) | Test unitario de `RecomendarProductoServicio`. | Añade el mock de `ApplicationEventPublisher` y verifica la publicación de `RecomendacionAñadidaEvento` con los dos ids correctos. |
 
 ---
 
-## 11. Referencias
+## 7. Referencias
 
-- [springdoc-openapi — Getting Started](https://springdoc.org/getting-started.html)
-- [springdoc-openapi — FAQ (respuestas vacías, ocultar esquemas, compatibilidad con Spring Boot)](https://springdoc.org/faq.html)
-- [OpenAPI Specification 3.1](https://spec.openapis.org/oas/v3.1.1)
+- [Spring Framework — Application Events](https://docs.spring.io/spring-framework/reference/core/beans/context-introduction.html#context-functionality-events)
+- [Domain Events (Martin Fowler)](https://martinfowler.com/eaaDev/DomainEvent.html)
 
-Ver también el `README.md` de `capitulo-02-relaciones-de-grafo-categoria` para el modelo de grafo y los casos de uso que este capítulo documenta.
+Ver también el `README.md` de `capitulo-03-openapi-swagger` para el flujo completo de Swagger UI que este capítulo reutiliza en la [sección 5](#5-cómo-probarlo-el-flujo-del-capítulo-3-con-logs-nuevos).

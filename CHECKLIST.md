@@ -6,15 +6,15 @@ Estado de las tecnologías/temas cubiertos en el tutorial, capítulo a capítulo
 
 Orden recomendado para los capítulos 4 en adelante, sujeto a revisión al planificar cada uno (como el resto del tutorial, el alcance final de cada capítulo se decide en conversación, no de antemano).
 
-1. **Eventos de dominio** — en proceso, vía `ApplicationEventPublisher`/`@EventListener` de Spring; separa el concepto de "evento de dominio" de la mecánica de transporte antes de ir a mensajería distribuida. Aprovechar este capítulo para introducir también `ProblemDetail` (RFC 7807) en `ControladorErroresGlobal`, sustituyendo las respuestas de texto plano por un formato de error estructurado — pendiente desde el capítulo 3 (ver su README, sección "Qué se deja para el capítulo 4"), no depender de que surja otro motivo para abordarlo.
+1. **`ProblemDetail` (RFC 7807)** — sustituir las respuestas de error en texto plano de `ControladorErroresGlobal` por un formato estructurado, incluyendo actualizar las anotaciones Swagger del capítulo 3 que documentan ese texto plano (`@Schema(implementation = String.class)`) — pendiente desde el capítulo 3 (ver su README, sección "Qué se deja para el capítulo 4"). Separado de eventos de dominio en un capítulo propio: son dos conceptos sin relación directa entre sí, y juntos habrían dejado un capítulo 4 desproporcionadamente largo frente al resto.
 2. **Segundo microservicio: Carrito/Pedidos** — persistencia políglota (Spring Data JPA/PostgreSQL, para contrastar con el grafo de Neo4j) y llamada síncrona a `servicio-catalogo` vía HTTP Service Client de Spring (`@HttpExchange`/`@ImportHttpServices`, no OpenFeign — ver "Comunicación entre servicios" más abajo). Con dos microservicios repitiendo el mismo patrón, revisar la verbosidad de anotaciones Swagger en los controllers de `servicio-catalogo` (capítulo 3): extraer `@Operation`/`@ApiResponses` a una interfaz (`ProductoControllerApi`, etc., en el mismo paquete `infraestructura.adaptador.entrada.rest`) que el `@RestController` implemente — springdoc-openapi soporta anotaciones declaradas en interfaces (FAQ oficial) y Spring MVC resuelve igual las de `@RequestMapping`, dejando la clase controller con solo `@Override` y el cuerpo del método.
 3. **Disciplina de tests y arquitectura: ArchUnit + jMolecules + Instancio + DataFaker** — se pospone hasta tener dos microservicios porque el valor de automatizar la disciplina hexagonal (ArchUnit sobre anotaciones jMolecules, vía `jmolecules-archunit`) y de reducir boilerplate de fixtures (Instancio/DataFaker) crece con el número de servicios/agregados a mantener consistentes; con uno solo no compensa el coste de introducirlas.
-4. **Mensajería asíncrona (Kafka)** — los eventos de dominio del capítulo 4 salen del proceso; los consume el microservicio del capítulo 5.
+4. **Mensajería asíncrona (Spring Cloud Stream, binders Kafka y RabbitMQ)** — los eventos de dominio del capítulo 4 salen del proceso; los consume el microservicio del capítulo 6. Spring Cloud Stream aporta la abstracción del binder (`Supplier`/`Function`/`Consumer` como `@Bean`, sin código específico del broker) — se demuestra su valor real implementando el mismo productor/consumidor sobre los dos binders (Kafka y RabbitMQ) y comprobando que solo cambia configuración, no código de negocio. Compatible con Spring Boot 4.1 desde Spring Cloud 2025.1.2 ("Oakwood", junio 2026).
 5. **Patrón Saga + compensación** — con Pedidos+Catálogo (y quizá Pagos) compartiendo una transacción de negocio.
 6. **Observabilidad** (Actuator + Micrometer + Prometheus + Grafana) — con tráfico real entre servicios y mensajería de por medio, hay algo que observar.
 7. **Seguridad: OAuth2/Keycloak/JWT** — proteger los endpoints de ambos microservicios antes de exponer nada a un frontend real o a un gateway público.
 8. **API Gateway/BFF** (Spring Cloud Gateway) — punto de entrada único; centraliza la autenticación del capítulo anterior en vez de repetirla en cada microservicio. Preguntar entonces si conviene configurar el desplegable "Servers" de Swagger UI (capítulo 3) con `@Server` en `@OpenAPIDefinition` — mostrar la URL del Gateway en vez de (o además de) la de cada microservicio directamente, y/o un `ServerBaseUrlCustomizer` si hay proxy inverso de por medio.
-9. **Frontend: Vaadin** — consume el Gateway, con login real y el flujo de negocio completo (catálogo → carrito → pedido con la Saga del capítulo 8) ya utilizable de principio a fin. No antes: montar una UI cuando el backend aún no tiene ni seguridad ni un flujo de negocio completo daría una demo a medias.
+9. **Frontend: Vaadin** — consume el Gateway, con login real y el flujo de negocio completo (catálogo → carrito → pedido con la Saga del capítulo 9) ya utilizable de principio a fin. No antes: montar una UI cuando el backend aún no tiene ni seguridad ni un flujo de negocio completo daría una demo a medias.
 10. **Carga masiva / exportación de datos: Spring Batch** — caso de uso: importar un catálogo de productos desde un CSV de proveedor (alta masiva) y/o exportar periódicamente el catálogo a un sistema externo de reporting; job disparado vía endpoint REST o `@Scheduled`, sin servidor de orquestación aparte. **No Spring Cloud Data Flow**: Broadcom descatalogó su versión open-source en abril de 2025 (2.11.x fue la última release libre; desarrollo futuro solo para clientes Tanzu Spring de pago) — no tiene sentido enseñar una herramienta que el lector no podría usar sin licencia comercial.
 11. **CI/CD: GitHub Actions** — pipeline de build+test (y despliegue, si procede) para el monorepo, ahora que hay suficiente superficie (varios servicios, Gateway, Batch) como para que compense automatizarlo.
 
@@ -23,14 +23,14 @@ Fuera de este plan (razonables pero no urgentes frente a lo anterior): Kubernete
 ## Arquitectura / DDD
 - [x] Arquitectura Hexagonal (puertos de entrada/salida + adaptadores)
 - [x] Agregado + Value Object (`Producto`, `Precio`, `ProductoId`)
-- [ ] Entidades internas al agregado (distintas del propio agregado) — candidato natural: líneas de pedido dentro del agregado `Pedido` (capítulo 5, ver hoja de ruta), no necesita capítulo propio
-- [ ] Eventos de dominio
+- [ ] Entidades internas al agregado (distintas del propio agregado) — candidato natural: líneas de pedido dentro del agregado `Pedido` (capítulo 6, ver hoja de ruta), no necesita capítulo propio
+- [x] Eventos de dominio — `ProductoCreadoEvento`/`RecomendacionAñadidaEvento` (capítulo 4), publicados con `ApplicationEventPublisher` desde los servicios de aplicación y consumidos con `@EventListener` síncrono dentro del mismo proceso; mecánica deliberadamente simple, sin broker externo (ver hoja de ruta para cuándo cruzan a otro proceso)
 - [x] Relaciones de grafo (Categoría, recomendaciones de producto)
 - [ ] jMolecules (anotaciones DDD)
 
 ## Persistencia
 - [x] Spring Data Neo4j (`servicio-catalogo` — grafo)
-- [ ] Migraciones/seed de datos — misma mecánica que la carga masiva del capítulo 13 (ver hoja de ruta) a menor escala
+- [ ] Migraciones/seed de datos — misma mecánica que la carga masiva del capítulo 14 (ver hoja de ruta) a menor escala
 - [ ] Persistencia políglota: cada microservicio futuro puede usar el motor más adecuado a su modelo (p. ej. relacional con Spring Data JPA/PostgreSQL, documental con MongoDB, caché con Redis) — se concreta motor a motor según el microservicio
 
 ## Herramientas de código
@@ -39,7 +39,7 @@ Fuera de este plan (razonables pero no urgentes frente a lo anterior): Kubernete
 
 ## Comunicación entre servicios
 - [ ] Cliente REST declarativo: HTTP Service Client de Spring Framework (`@HttpExchange` + `@ImportHttpServices`, sobre `RestClient`) — no OpenFeign: la documentación oficial de Spring Cloud OpenFeign lo da como "feature-complete" (solo bugfixes) y recomienda migrar a esta alternativa, ya soportada de forma nativa en Spring Boot 4.1 sin depender de Spring Cloud
-- [ ] Mensajería asíncrona (Kafka/RabbitMQ)
+- [ ] Mensajería asíncrona (Spring Cloud Stream, binders Kafka y RabbitMQ)
 - [ ] API Gateway (Spring Cloud Gateway) — punto de entrada único para los microservicios expuestos
 
 ## Procesamiento por lotes
@@ -85,7 +85,7 @@ Fuera de este plan (razonables pero no urgentes frente a lo anterior): Kubernete
 
 Capturas de pantalla de interfaces web que el usuario debe adjuntar manualmente (los diagramas `.excalidraw` no cuentan aquí, esos se renderizan directamente a PNG). Carpeta destino: `docs/images/`. Formato: `.png`.
 
-Las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`), la del capítulo 2 (`neo4j-browser-grafo-relaciones.png`) y la del capítulo 3 (`swagger-ui.png`) ya están adjuntadas. Ninguna pendiente por ahora.
+Las 3 capturas de Neo4j Browser del capítulo 1 (`neo4j-browser-login.png`, `neo4j-browser.png`, `neo4j-browser-grafo-productos.png`), la del capítulo 2 (`neo4j-browser-grafo-relaciones.png`), la del capítulo 3 (`swagger-ui.png`) y las 2 del capítulo 4 (`intellij-maven-run-configuration.png`, `intellij-spring-boot-run-configuration.png`) ya están adjuntadas. Ninguna pendiente por ahora.
 
 ## Microservicios candidatos
 - [x] Catálogo/Productos (`servicio-catalogo`)

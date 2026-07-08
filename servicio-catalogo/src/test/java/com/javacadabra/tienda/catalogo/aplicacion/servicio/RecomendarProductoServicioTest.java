@@ -2,6 +2,7 @@ package com.javacadabra.tienda.catalogo.aplicacion.servicio;
 
 import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.RecomendarProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.salida.ProductoRepositorioPuertoSalida;
+import com.javacadabra.tienda.catalogo.dominio.evento.RecomendacionAñadidaEvento;
 import com.javacadabra.tienda.catalogo.dominio.excepcion.ProductoNoEncontradoException;
 import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
@@ -9,12 +10,15 @@ import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -27,17 +31,21 @@ class RecomendarProductoServicioTest {
 	@Mock
 	private ProductoRepositorioPuertoSalida productoRepositorioPuertoSalida;
 
+	@Mock
+	private ApplicationEventPublisher applicationEventPublisher;
+
 	@Test
 	void recomendarUnProductoInexistenteLanzaExcepcion() {
 		ProductoId id = ProductoId.generar();
 		when(productoRepositorioPuertoSalida.buscarPorId(id)).thenReturn(Optional.empty());
 
-		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida);
+		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida, applicationEventPublisher);
 		RecomendarProductoDTO dto = new RecomendarProductoDTO(ProductoId.generar().valor());
 
 		assertThatThrownBy(() -> servicio.recomendar(id.valor(), dto)).isInstanceOf(ProductoNoEncontradoException.class);
 
 		verify(productoRepositorioPuertoSalida, never()).agregarRecomendacion(any(), any());
+		verify(applicationEventPublisher, never()).publishEvent(any());
 	}
 
 	@Test
@@ -45,26 +53,32 @@ class RecomendarProductoServicioTest {
 		Producto producto = Producto.crear("Camiseta", "100% algodón", Precio.de(BigDecimal.TEN), CategoriaId.generar());
 		when(productoRepositorioPuertoSalida.buscarPorId(producto.id())).thenReturn(Optional.of(producto));
 
-		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida);
+		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida, applicationEventPublisher);
 		RecomendarProductoDTO dto = new RecomendarProductoDTO(producto.id().valor());
 
 		assertThatThrownBy(() -> servicio.recomendar(producto.id().valor(), dto)).isInstanceOf(IllegalArgumentException.class);
 
 		verify(productoRepositorioPuertoSalida, never()).agregarRecomendacion(any(), any());
+		verify(applicationEventPublisher, never()).publishEvent(any());
 	}
 
 	@Test
-	void recomendarUnProductoDistintoExistenteAgregaLaRecomendacion() {
+	void recomendarUnProductoDistintoExistenteAgregaLaRecomendacionYPublicaElEvento() {
 		Producto producto = Producto.crear("Camiseta", "100% algodón", Precio.de(BigDecimal.TEN), CategoriaId.generar());
 		Producto recomendado = Producto.crear("Pantalón", "Vaquero", Precio.de(BigDecimal.TEN), CategoriaId.generar());
 		when(productoRepositorioPuertoSalida.buscarPorId(producto.id())).thenReturn(Optional.of(producto));
 		when(productoRepositorioPuertoSalida.buscarPorId(recomendado.id())).thenReturn(Optional.of(recomendado));
 
-		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida);
+		RecomendarProductoServicio servicio = new RecomendarProductoServicio(productoRepositorioPuertoSalida, applicationEventPublisher);
 		RecomendarProductoDTO dto = new RecomendarProductoDTO(recomendado.id().valor());
 
 		servicio.recomendar(producto.id().valor(), dto);
 
 		verify(productoRepositorioPuertoSalida).agregarRecomendacion(producto.id(), recomendado.id());
+
+		var capturador = ArgumentCaptor.forClass(RecomendacionAñadidaEvento.class);
+		verify(applicationEventPublisher).publishEvent(capturador.capture());
+		assertThat(capturador.getValue().productoId()).isEqualTo(producto.id());
+		assertThat(capturador.getValue().productoRecomendadoId()).isEqualTo(recomendado.id());
 	}
 }
