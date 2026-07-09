@@ -450,11 +450,13 @@ You cannot judge a diagram from JSON alone. After generating or editing the Exca
 
 ### How to Render
 
+> **Note (this project's copy of the skill):** the original `render_excalidraw.py`/`color-palette.md`/`element-templates.md` shipped with this skill were lost — only `SKILL.md` was ever committed to this repo (confirmed via `git log`). The files now in `references/` are a reconstruction: `render_excalidraw.py` opens the file in headless Chromium against `https://excalidraw.com` (mocking `showOpenFilePicker`, since that site has no local rendering server and headless browsers can't drive its native file-open dialog), hides the app UI, and auto-crops the result — rather than whatever local/offline rendering approach the original script may have used. Functionally equivalent for this workflow's purposes.
+
 ```bash
-cd .claude/skills/excalidraw-diagram/references && uv run python render_excalidraw.py <path-to-file.excalidraw>
+cd .claude/skills/excalidraw-diagram/references && uv run render_excalidraw.py <path-to-file.excalidraw> [output.png]
 ```
 
-This outputs a PNG next to the `.excalidraw` file. Then use the **Read tool** on the PNG to actually view it.
+Outputs a PNG next to the `.excalidraw` file by default (or at the given path). Then use the **Read tool** on the PNG to actually view it.
 
 ### The Loop
 
@@ -501,12 +503,11 @@ The loop is done when:
 - You'd be comfortable showing it to someone without caveats
 
 ### First-Time Setup
-If the render script hasn't been set up yet:
+If Chromium hasn't been installed for Playwright's Python bindings yet:
 ```bash
-cd .claude/skills/excalidraw-diagram/references
-uv sync
-uv run playwright install chromium
+uv run --with playwright playwright install chromium
 ```
+`render_excalidraw.py` declares its own dependencies inline (PEP 723) and `uv run` resolves them automatically — no `uv sync`/`pyproject.toml` needed.
 
 ---
 
