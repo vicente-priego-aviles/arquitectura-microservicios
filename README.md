@@ -1,5 +1,9 @@
 # arquitectura-microservicios
 
+![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white)
+![Licencia](https://img.shields.io/badge/Licencia-Apache%202.0-blue)
+
 De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un tutorial. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
 
 ## Índice de capítulos
@@ -15,5 +19,23 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 6 | [`capitulo-06-servicio-pedidos`](../../tree/capitulo-06-servicio-pedidos) | Segundo microservicio: Pedidos (JPA/PostgreSQL) | servicio-pedidos | ✅ |
 
 Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+
+## Stack tecnológico
+
+Versiones tal como están fijadas en el `pom.xml` del último capítulo — cada fila enlaza al capítulo donde se introdujo.
+
+| Tecnología | Versión | Uso |
+|---|---|---|
+| Java | 25 | Lenguaje base |
+| Spring Boot | 4.1.0 | Framework de aplicación |
+| Spring Cloud | 2025.1.2 | BOM de dependencias inter-servicio |
+| [Spring Data Neo4j](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | — | Persistencia en grafo (`servicio-catalogo`) |
+| [Spring Data JPA + PostgreSQL](../../tree/capitulo-06-servicio-pedidos) | — | Persistencia relacional (`servicio-pedidos`) |
+| [Flyway](../../tree/capitulo-06-servicio-pedidos) | — | Migraciones de esquema (`servicio-pedidos`) |
+| [springdoc-openapi](../../tree/capitulo-03-openapi-swagger) | 3.0.3 | OpenAPI 3 / Swagger UI |
+| MapStruct | 1.6.3 | Mapeo dominio↔DTO, dominio↔entidad |
+| Lombok | — | Reduce boilerplate (getters, constructores) |
+| Testcontainers | 1.21.4 | Tests de integración con infraestructura real |
+| Docker Compose | — | Entorno de desarrollo local |
 
 Ver [CLAUDE.md](CLAUDE.md) para la guía completa de convenciones (idioma, arquitectura, modelo de ramas).
