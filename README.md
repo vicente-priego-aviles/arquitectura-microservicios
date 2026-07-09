@@ -1,214 +1,271 @@
-# Capítulo 05 — ProblemDetail (RFC 7807)
+# Capítulo 06 — Segundo microservicio: Pedidos (JPA/PostgreSQL)
 
-Quinto capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-04-eventos-dominio`. Este capítulo no introduce un microservicio nuevo — sigue trabajando sobre `servicio-catalogo`.
+Sexto capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-05-problemdetail-rfc7807`. Introduce un microservicio nuevo, `servicio-pedidos`, con persistencia relacional (Spring Data JPA/PostgreSQL) en contraste con el grafo Neo4j de `servicio-catalogo`, incluyendo migraciones de esquema versionadas con Flyway.
 
 ## Índice
 
 1. [Introducción](#1-introducción)
-2. [Detalles del Problema (Problem Details): la RFC detrás de `ProblemDetail`](#2-detalles-del-problema-problem-details-la-rfc-detrás-de-problemdetail)
-3. [`ControladorErroresGlobal`: de texto plano a `ProblemDetail`](#3-controladorerroresglobal-de-texto-plano-a-problemdetail)
-4. [Actualizar las anotaciones Swagger del capítulo 3](#4-actualizar-las-anotaciones-swagger-del-capítulo-3)
-5. [Cómo probarlo](#5-cómo-probarlo)
-6. [Registro de archivos del capítulo](#6-registro-de-archivos-del-capítulo)
-7. [Referencias](#7-referencias)
+2. [El agregado `Pedido` y la entidad interna `LineaPedido`](#2-el-agregado-pedido-y-la-entidad-interna-lineapedido)
+3. [Puertos y servicio de aplicación: `CrearPedido`](#3-puertos-y-servicio-de-aplicación-crearpedido)
+4. [Persistencia políglota (Polyglot Persistence): por qué JPA/PostgreSQL frente al grafo de Neo4j](#4-persistencia-políglota-polyglot-persistence-por-qué-jpapostgresql-frente-al-grafo-de-neo4j)
+5. [Migración de esquema (Schema Migration) con Flyway y mapeo JPA](#5-migración-de-esquema-schema-migration-con-flyway-y-mapeo-jpa)
+6. [Cómo probarlo](#6-cómo-probarlo)
+7. [Registro de archivos del capítulo](#7-registro-de-archivos-del-capítulo)
+8. [Referencias](#8-referencias)
 
 ---
 
 ## 1. Introducción
 
-`ControladorErroresGlobal` (capítulo 1) resuelve el problema de centralizar el manejo de excepciones — un único `@RestControllerAdvice` en vez de un `try/catch` repetido en cada controller — pero lo que envía al cliente es solo el mensaje de la excepción como texto plano: `ResponseEntity<String>` con `excepcion.getMessage()` en el cuerpo. Funciona mientras el único consumidor sea un humano leyendo Swagger UI, pero un texto libre no le sirve de mucho a un cliente programático: no hay forma fiable de distinguir "categoría no encontrada" de "producto no encontrado" sin analizar el propio texto del mensaje, ni de extraer el id que causó el error sin *parsear* una frase pensada para leerse, no para procesarse.
+Los cinco capítulos anteriores construyeron `servicio-catalogo` completo: Agregados con Objetos de Valor, relaciones de grafo en Neo4j, API REST documentada con OpenAPI, eventos de dominio y errores estructurados con `ProblemDetail`. Pero un catálogo de productos por sí solo no es una tienda — falta el otro lado de la transacción: alguien que compra. Este capítulo arranca `servicio-pedidos`, un segundo microservicio con su propio modelo de dominio, un Contexto Delimitado (Bounded Context) aislado del de Catálogo aunque hable del mismo negocio.
 
-Este capítulo sustituye ese texto plano por [Detalles del Problema (Problem Details)](#2-detalles-del-problema-problem-details-la-rfc-detrás-de-problemdetail): un formato estándar y estructurado para modelar errores HTTP, con soporte nativo en Spring desde la versión 6 vía la clase `ProblemDetail`. De paso, las anotaciones Swagger del capítulo 3 que documentaban ese texto plano (`@Schema(implementation = String.class)`) se actualizan para reflejar el nuevo esquema — ver [sección 4](#4-actualizar-las-anotaciones-swagger-del-capítulo-3).
-
----
-
-## 2. Detalles del Problema (Problem Details): la RFC detrás de `ProblemDetail`
-
-Detalles del Problema (Problem Details) es un formato JSON estandarizado para representar errores en APIs HTTP, definido originalmente en la [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) (2016) y sustituido desde 2023 por la [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), que la obsoleta formalmente sin cambiar su forma básica — de ahí que RFC 7807 siga siendo el nombre con el que se identifica al patrón en la práctica, aunque la documentación oficial de Spring ya referencia la 9457. Define cinco campos:
-
-| Campo | Significado |
-|---|---|
-| `type` | URI que identifica el tipo de problema. No hace falta que resuelva a una página real — es un identificador, aunque la RFC recomienda que si se resuelve, devuelva documentación legible para humanos. Por defecto, `"about:blank"`. |
-| `title` | Resumen corto y legible del tipo de problema, constante para todas las instancias del mismo `type` (a diferencia de `detail`, que sí varía). |
-| `status` | El código de estado HTTP, repetido aquí para que un cliente que solo mira el cuerpo (y no la cabecera HTTP) también lo tenga. |
-| `detail` | Explicación específica de esta instancia del problema — aquí es donde antes iba todo el mensaje de la excepción. |
-| `instance` | URI que identifica esta ocurrencia concreta del problema (típicamente, la ruta de la petición que falló). |
-
-La RFC permite además **extensiones**: propiedades adicionales, específicas de cada `type`, que viajan al mismo nivel que los cinco campos anteriores (no anidadas). Es el mecanismo que este capítulo usa para incluir, por ejemplo, el id del producto que no se encontró.
-
-Spring Framework modela este formato con la clase `org.springframework.http.ProblemDetail` (desde Spring 6 / Spring Boot 3), con soporte directo en Spring MVC: un método anotado con `@ExceptionHandler` puede devolver un `ProblemDetail` igual que devolvería cualquier otro tipo, y Spring se encarga de serializarlo con `Content-Type: application/problem+json` y de rellenar `instance` automáticamente con la ruta de la petición.
-
-> **¿Por qué no lanzar directamente `ErrorResponseException` en el dominio?**
->
-> Spring también ofrece `ErrorResponseException`, una excepción que ya implementa la interfaz `ErrorResponse` y lleva su propio `ProblemDetail` incorporado — lanzarla evitaría el `@ExceptionHandler` por completo, porque `ResponseEntityExceptionHandler` (otra clase de Spring) ya sabe convertirla en la respuesta HTTP. Pero eso obligaría a las excepciones del paquete `dominio.excepcion` a extender una clase de `org.springframework.web`, exactamente el acoplamiento a un framework que la capa de dominio de este proyecto evita en cualquier otra circunstancia. Mantener `CategoriaNoEncontradaException`/`ProductoNoEncontradoException` como `RuntimeException` planas y traducirlas a `ProblemDetail` en `ControladorErroresGlobal` — que ya vive en `infraestructura`, la capa que sí conoce Spring — deja esa traducción donde corresponde.
+La decisión que atraviesa todo el capítulo es la persistencia: en vez de reutilizar Neo4j, Pedidos usa Spring Data JPA sobre PostgreSQL — la primera vez que el monorepo tiene persistencia políglota (Polyglot Persistence) real, cada microservicio con el motor que mejor encaja con la forma de su propio modelo, no uno impuesto de arriba abajo. La [sección 4](#4-persistencia-políglota-polyglot-persistence-por-qué-jpapostgresql-frente-al-grafo-de-neo4j) desarrolla por qué.
 
 ---
 
-## 3. `ControladorErroresGlobal`: de texto plano a `ProblemDetail`
+## 2. El agregado `Pedido` y la entidad interna `LineaPedido`
 
-Cada `@ExceptionHandler` pasa de devolver `ResponseEntity<String>` a devolver `ProblemDetail`, construido con el factory estático `ProblemDetail.forStatusAndDetail(HttpStatus, String)` y completado con `setType(...)`/`setTitle(...)`/`setProperty(...)`:
+`Pedido` es el Agregado raíz de este Contexto Delimitado: agrupa a un cliente y a las líneas que componen su pedido, y es el único punto de entrada para modificarlas — nada fuera de `Pedido` puede añadir una línea directamente. Sigue la misma convención Lombok que `Producto`/`Categoria` en Catálogo (constructor privado, factories estáticas `crear`/`reconstruir`, `@Getter @Accessors(fluent = true)`, `@EqualsAndHashCode` solo por `id`):
 
 ```java
-@RestControllerAdvice
-public class ControladorErroresGlobal {
+public static Pedido crear(ClienteId clienteId) {
+	Objects.requireNonNull(clienteId, "El cliente del pedido no puede ser nulo");
+	return new Pedido(PedidoId.generar(), clienteId, new ArrayList<>(), Instant.now());
+}
 
-	private static final URI TIPO_PRODUCTO_NO_ENCONTRADO = URI.create("https://tienda.javacadabra.com/problemas/producto-no-encontrado");
-	private static final URI TIPO_CATEGORIA_NO_ENCONTRADA = URI.create("https://tienda.javacadabra.com/problemas/categoria-no-encontrada");
-	private static final URI TIPO_ARGUMENTO_INVALIDO = URI.create("https://tienda.javacadabra.com/problemas/argumento-invalido");
+public void agregarLinea(ProductoId productoId, Cantidad cantidad, Precio precioUnitario) {
+	lineas.add(LineaPedido.crear(productoId, cantidad, precioUnitario));
+}
 
-	@ExceptionHandler(ProductoNoEncontradoException.class)
-	public ProblemDetail manejarProductoNoEncontrado(ProductoNoEncontradoException excepcion) {
-		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excepcion.getMessage());
-		problema.setType(TIPO_PRODUCTO_NO_ENCONTRADO);
-		problema.setTitle("Producto no encontrado");
-		problema.setProperty("productoId", excepcion.getId());
-		return problema;
-	}
-
-	@ExceptionHandler(CategoriaNoEncontradaException.class)
-	public ProblemDetail manejarCategoriaNoEncontrada(CategoriaNoEncontradaException excepcion) {
-		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excepcion.getMessage());
-		problema.setType(TIPO_CATEGORIA_NO_ENCONTRADA);
-		problema.setTitle("Categoría no encontrada");
-		problema.setProperty("categoriaId", excepcion.getId());
-		return problema;
-	}
-
-	@ExceptionHandler(IllegalArgumentException.class)
-	public ProblemDetail manejarArgumentoInvalido(IllegalArgumentException excepcion) {
-		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, excepcion.getMessage());
-		problema.setType(TIPO_ARGUMENTO_INVALIDO);
-		problema.setTitle("Argumento inválido");
-		return problema;
-	}
+public Precio total() {
+	BigDecimal total = lineas.stream()
+			.map(LineaPedido::subtotal)
+			.reduce(BigDecimal.ZERO, BigDecimal::add);
+	return Precio.de(total);
 }
 ```
 
-Dos decisiones de diseño:
-
-- **`productoId`/`categoriaId` como extensión, no en `detail`**: antes, el id solo existía dentro del texto del mensaje (`"No se ha encontrado el producto con id: " + id`). Para exponerlo como campo estructurado, `ProductoNoEncontradoException`/`CategoriaNoEncontradaException` ganan un campo `id` (con `@Getter` de Lombok) que antes no almacenaban — solo lo usaban para construir el mensaje y lo descartaban.
-- **`manejarArgumentoInvalido` no lleva extensión propia**: a diferencia de los dos anteriores, `IllegalArgumentException` la lanzan varios sitios distintos del dominio (`Precio`, `CategoriaId`, `ProductoId`, `Categoria`, `Producto`) por motivos distintos cada vez — un precio negativo, un nombre vacío, un producto que se recomienda a sí mismo. No hay un campo único y consistente que extraer de todas esas causas, así que este handler se queda con `type`/`title`/`detail`/`status`, sin extensión. Las extensiones son opcionales precisamente por esto: se añaden cuando aportan algo estructurable, no en todos los `type` por sistema.
-
-`instance` no aparece en ningún handler porque Spring lo rellena automáticamente con la ruta de la petición que falló — no hace falta construirlo a mano.
-
----
-
-## 4. Actualizar las anotaciones Swagger del capítulo 3
-
-El capítulo 3 documentó las respuestas `400`/`404` con `@Schema(implementation = String.class)`, porque eso era, literalmente, lo que devolvía `ControladorErroresGlobal`. Con el cambio de la [sección anterior](#3-controladorerroresglobal-de-texto-plano-a-problemdetail), ese esquema ya no es cierto — hay que actualizarlo a `ProblemDetail`, en los dos controllers que documentan ramas de error:
+Cada línea es una Entidad (Entity) interna al agregado — vive dentro de `Pedido`, no tiene repositorio ni ciclo de vida propios, y solo se crea a través de `agregarLinea`:
 
 ```java
-// ProductoController — antes
-@ApiResponse(responseCode = "404", description = "No existe un producto con ese id",
-		content = @Content(schema = @Schema(implementation = String.class)))
-
-// ProductoController — después
-@ApiResponse(responseCode = "404", description = "No existe un producto con ese id",
-		content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+public static LineaPedido crear(ProductoId productoId, Cantidad cantidad, Precio precioUnitario) {
+	Objects.requireNonNull(productoId, "El producto de la línea de pedido no puede ser nulo");
+	Objects.requireNonNull(cantidad, "La cantidad de la línea de pedido no puede ser nula");
+	Objects.requireNonNull(precioUnitario, "El precio unitario de la línea de pedido no puede ser nulo");
+	return new LineaPedido(productoId, cantidad, precioUnitario);
+}
 ```
 
-El mismo cambio aplica a las cinco apariciones repartidas entre `ProductoController` (`crear`, `buscarPorId`, `recomendar`) y `CategoriaController` (`buscarPorId`).
+El getter `lineas()` de `Pedido` no expone la lista mutable interna, sino una copia (`List.copyOf(lineas)`): si devolviera la referencia real, cualquier código externo podría añadir líneas saltándose `agregarLinea` — y con ella, sus validaciones — sin pasar por ningún método del agregado.
 
-> **¿Por qué el esquema generado muestra `properties` como un objeto anidado, si `categoriaId` viaja al mismo nivel que `detail` en la respuesta real?**
+`ProductoId` y `Precio` existen también como Objetos de Valor propios de este microservicio, distintos de sus homónimos en `servicio-catalogo`: cada Contexto Delimitado modela sus propios conceptos, aunque el nombre y la forma coincidan. `precioUnitario` en concreto es una copia congelada del precio del producto en el momento de crear la línea, no una referencia viva al `Precio` actual del catálogo — si ese precio cambia después, el pedido ya confirmado no se ve afectado.
+
+> **¿Por qué `Pedido` no tiene todavía `confirmar()`/`cancelar()`?**
 >
-> Es una discrepancia real entre lo que dice el esquema OpenAPI y lo que realmente devuelve el endpoint — vale la pena señalarla para no confundirse leyendo Swagger UI. `ProblemDetail` guarda sus extensiones internamente en un campo `Map<String, Object> properties`, y springdoc-openapi genera el esquema reflejando esa forma interna: `properties` aparece como un objeto anidado más, con `additionalProperties` sin tipar. Pero en tiempo de ejecución, Jackson serializa `ProblemDetail` con un método anotado `@JsonAnyGetter` que "aplana" ese mapa: cada entrada (`categoriaId`, `productoId`) sale como un campo suelto al mismo nivel que `type`/`title`/`detail`, no anidada bajo `"properties": {...}`. La [sección 5](#5-cómo-probarlo) lo muestra con una respuesta real para comparar.
+> El agregado arranca directamente en un estado implícito equivalente a "pendiente", sin un campo `estado` explícito ni transiciones. Añadir esas transiciones ahora, sin un caso de uso real que las dispare, sería diseñar para un requisito hipotético en vez de para uno concreto — exactamente lo que este proyecto evita. El campo `estado` y sus transiciones se incorporan cuando aparezca la primera razón real para necesitarlos.
 
 ---
 
-## 5. Cómo probarlo
+## 3. Puertos y servicio de aplicación: `CrearPedido`
 
-```bash
-./mvnw -pl servicio-catalogo spring-boot:run
-```
+Mismo patrón hexagonal que Catálogo: un puerto de entrada por caso de uso, un puerto de salida por necesidad de persistencia, y un servicio de aplicación que los conecta.
 
-Con el servicio arrancado, una petición a un recurso que no existe ya no devuelve texto plano:
+```java
+public interface CrearPedidoPuertoEntrada {
+	PedidoDTO crear(CrearPedidoDTO dto);
+}
 
-```bash
-curl -i http://localhost:8080/api/categorias/00000000-0000-0000-0000-000000000000
-```
-
-```http
-HTTP/1.1 404
-Content-Type: application/problem+json
-
-{
-  "type": "https://tienda.javacadabra.com/problemas/categoria-no-encontrada",
-  "title": "Categoría no encontrada",
-  "status": 404,
-  "detail": "No se ha encontrado la categoría con id: 00000000-0000-0000-0000-000000000000",
-  "instance": "/api/categorias/00000000-0000-0000-0000-000000000000",
-  "categoriaId": "00000000-0000-0000-0000-000000000000"
+public interface PedidoRepositorioPuertoSalida {
+	Pedido guardar(Pedido pedido);
 }
 ```
 
-Nótese `categoriaId` al mismo nivel que el resto de campos — no anidado bajo `properties`, tal como adelanta la nota de la [sección 4](#4-actualizar-las-anotaciones-swagger-del-capítulo-3) — y `Content-Type: application/problem+json`, distinto del `application/json` de una respuesta normal, que le permite a un cliente HTTP detectar que está ante un error estructurado sin necesidad de mirar siquiera el código de estado.
+`CrearPedidoServicio` reconstruye el agregado a partir del DTO de entrada (un `clienteId` y una lista de líneas) y lo guarda:
 
-Un id con formato inválido, en cambio, dispara la rama de `IllegalArgumentException` — sin extensión, como se explicó en la [sección 3](#3-controladorerroresglobal-de-texto-plano-a-problemdetail):
+```java
+@Override
+public PedidoDTO crear(CrearPedidoDTO dto) {
+	Pedido pedido = Pedido.crear(ClienteId.de(dto.clienteId()));
+	dto.lineas().forEach(linea -> pedido.agregarLinea(
+			ProductoId.de(linea.productoId()),
+			Cantidad.de(linea.cantidad()),
+			Precio.de(linea.precioUnitario())));
 
-```bash
-curl -i http://localhost:8080/api/categorias/no-es-un-uuid
-```
-
-```http
-HTTP/1.1 400
-Content-Type: application/problem+json
-
-{
-  "type": "https://tienda.javacadabra.com/problemas/argumento-invalido",
-  "title": "Argumento inválido",
-  "status": 400,
-  "detail": "El id de la categoría debe ser un UUID válido: no-es-un-uuid",
-  "instance": "/api/categorias/no-es-un-uuid"
+	Pedido guardado = pedidoRepositorioPuertoSalida.guardar(pedido);
+	return pedidoMapper.aDTO(guardado);
 }
 ```
 
-Desde Swagger UI (`http://localhost:8080/swagger-ui.html`, capítulo 3), el esquema `ProblemDetail` ya aparece documentado en las respuestas `400`/`404` de cada endpoint, en vez del `string` del capítulo 3.
+`PedidoRepositorioPuertoSalida` declara únicamente `guardar` — a diferencia de `ProductoRepositorioPuertoSalida` en Catálogo, que ya acumula varios métodos de búsqueda porque varios capítulos fueron añadiendo casos de uso sobre el mismo puerto. Aquí, hasta que exista un caso de uso `BuscarPedido`, cualquier otro método sería un método sin llamador.
 
-![Esquema ProblemDetail documentado en Swagger UI](docs/images/capitulo-05/swagger-ui-problemdetail.png)
+> **¿Por qué `CrearPedidoServicio` no comprueba que el producto existe en `servicio-catalogo`, ni que su precio es correcto?**
+>
+> El DTO de entrada trae ya el `productoId` y el `precioUnitario` como datos de confianza, sin verificarlos contra el catálogo real. Esa verificación exige una llamada saliente a otro microservicio — un problema distinto (comunicación entre servicios) del que resuelve este capítulo (persistencia políglota). Mezclarlos aquí obligaría a introducir un cliente HTTP a medio construir solo para poder validar un id.
 
-*Swagger UI mostrando el esquema `ProblemDetail` (`type`, `title`, `status`, `detail`, `instance`, `properties`) en la respuesta `404` de `GET /api/productos/{id}`.*
+---
 
-<br>
+## 4. Persistencia políglota (Polyglot Persistence): por qué JPA/PostgreSQL frente al grafo de Neo4j
 
-Los tests automatizados existentes (`CrearProductoServicioTest`, `RecomendarProductoServicioTest`, tests de dominio) no verifican el cuerpo de la respuesta HTTP — trabajan a nivel de servicio de aplicación y de dominio, por debajo de `ControladorErroresGlobal` — así que siguen en verde sin cambios:
+`servicio-catalogo` usa Neo4j porque su dominio es, literalmente, un grafo: productos que pertenecen a categorías y se recomiendan entre sí, con las propias relaciones (`PERTENECE_A`, `RELACIONADO_CON`) como parte del modelo. `Pedido` no tiene esa forma — es un agregado con una lista de líneas, el caso de uso de manual de cualquier ORM relacional: una tabla `pedidos` y una tabla `lineas_pedido` con una clave foránea, sin ninguna relación de grafo que aprovechar.
 
-```bash
-./mvnw -pl servicio-catalogo test
+Persistencia políglota es justamente esto: cada microservicio elige el motor de persistencia por la forma de sus datos, no por una decisión única para todo el monorepo. Spring Data JPA sobre PostgreSQL es la elección por defecto para este caso — modelo relacional maduro, y el mismo patrón de Puerto de salida + Adaptador que ya desacopla el dominio de Neo4j en Catálogo desacopla aquí el dominio de JPA.
+
+---
+
+## 5. Migración de esquema (Schema Migration) con Flyway y mapeo JPA
+
+Con un esquema relacional entra por primera vez en el monorepo la pregunta de quién crea las tablas. La opción por defecto de Hibernate (`ddl-auto=update`/`create`) genera el esquema a partir de las entidades JPA en cada arranque — cómoda para prototipar, pero sin ningún registro versionado de cómo evolucionó ese esquema, y arriesgada en cuanto hay datos reales que no se pueden simplemente regenerar. Una Migración de esquema resuelve esto con scripts versionados que se aplican una sola vez, en orden, y quedan registrados en una tabla de control — el mismo espíritu que un historial de commits, pero para el esquema de la base de datos.
+
+Este capítulo usa [Flyway](#8-referencias) en vez de Liquibase: las migraciones son SQL plano, así que lo que se lee en el repositorio es el DDL real que se ejecuta contra PostgreSQL, no una capa de abstracción XML/YAML intermedia. Spring Boot 4.1 le da soporte de primera clase con su propio starter modular (`spring-boot-starter-flyway`), separado del starter de PostgreSQL:
+
+```sql
+CREATE TABLE pedidos (
+    id             VARCHAR(36) PRIMARY KEY,
+    cliente_id     VARCHAR(36)              NOT NULL,
+    fecha_creacion TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE lineas_pedido (
+    id               BIGSERIAL PRIMARY KEY,
+    pedido_id        VARCHAR(36)    NOT NULL REFERENCES pedidos (id),
+    producto_id      VARCHAR(36)    NOT NULL,
+    cantidad         INTEGER        NOT NULL,
+    precio_unitario  NUMERIC(19, 2) NOT NULL
+);
+
+CREATE INDEX idx_lineas_pedido_pedido_id ON lineas_pedido (pedido_id);
+```
+
+El archivo vive en `src/main/resources/db/migration/V1__crear_tablas_pedidos.sql` — Flyway busca ahí por convención, y el nombre codifica el número de versión (`V1`) y una descripción legible separados por doble guion bajo. Con Flyway presente y una base de datos no embebida, Spring Boot fija `ddl-auto=none` por defecto: Hibernate deja de generar ni validar el esquema, y Flyway pasa a ser la única fuente de verdad sobre las tablas.
+
+El mapeo JPA vive, como en Catálogo, en entidades de infraestructura propias — `PedidoEntidad`/`LineaPedidoEntidad` — distintas de `Pedido`/`LineaPedido` del dominio:
+
+```java
+@Entity
+@Table(name = "pedidos")
+public class PedidoEntidad {
+
+	@Id
+	private String id;
+	private String clienteId;
+	private Instant fechaCreacion;
+
+	@OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<LineaPedidoEntidad> lineas;
+}
+```
+
+`cascade = CascadeType.ALL, orphanRemoval = true` traduce a JPA la misma invariante que ya imponía el dominio: una línea no existe sin su pedido. Guardar un `PedidoEntidad` guarda también sus líneas, y quitar una línea de la lista la borra de la tabla — no hace falta gestionarlas por separado.
+
+> **¿Por qué `LineaPedidoEntidad` tiene un `id` (`Long`, autogenerado) si `LineaPedido` en el dominio no lo tiene?**
+>
+> Son identidades de naturaleza distinta. El dominio no necesita un id para `LineaPedido` porque nunca se referencia una línea suelta desde fuera de su `Pedido` — no hay ningún caso de uso que diga "la línea X". La tabla `lineas_pedido`, en cambio, sí necesita una clave primaria técnica: es un requisito del modelo relacional (toda fila la tiene), no una necesidad del dominio. `PedidoEntidadMapper` es quien resuelve esta diferencia, generando y descartando ese id técnico al traducir entre ambos mundos.
+
+`PedidoRepositorioAdaptador` implementa el puerto de salida apoyándose en `PedidoRepositorioJpa` (una interfaz `JpaRepository<PedidoEntidad, String>` de Spring Data, sin necesidad de implementación manual) y en `PedidoEntidadMapper` (MapStruct, con métodos `default` escritos a mano para aplanar los Objetos de Valor anidados — mismo patrón que `ProductoEntidadMapper` en Catálogo):
+
+```java
+@Override
+public Pedido guardar(Pedido pedido) {
+	var entidadGuardada = pedidoRepositorioJpa.save(pedidoEntidadMapper.aEntidad(pedido));
+	return pedidoEntidadMapper.aDominio(entidadGuardada);
+}
 ```
 
 ---
 
-## 6. Registro de archivos del capítulo
+## 6. Cómo probarlo
+
+Los tests de dominio y de aplicación no necesitan infraestructura (Mockito sustituye al repositorio real):
+
+```bash
+./mvnw -pl servicio-pedidos test
+```
+
+El test de integración `PedidoRepositorioAdaptadorIntegrationTest` sí la necesita, y la levanta él mismo con Testcontainers: un contenedor PostgreSQL real, contra el que Flyway aplica `V1__crear_tablas_pedidos.sql` antes de que Hibernate lea o escriba nada — el mismo camino que seguiría el esquema en producción, no un esquema generado ad hoc para el test.
+
+```
+Migrating schema "public" to version "1 - crear tablas pedidos"
+Successfully applied 1 migration to schema "public", now at version v1
+Hibernate: insert into pedidos (cliente_id,fecha_creacion,id) values (?,?,?)
+Hibernate: insert into lineas_pedido (cantidad,pedido_id,precio_unitario,producto_id) values (?,?,?,?)
+```
+
+Arrancar el servicio completo también aplica la migración contra el PostgreSQL de `compose.yaml` (levantado automáticamente por `spring-boot-docker-compose`, igual que Neo4j en Catálogo):
+
+```bash
+./mvnw -pl servicio-pedidos spring-boot:run
+```
+
+Todavía no hay ningún endpoint REST que probar con `curl` — `CrearPedidoPuertoEntrada` no tiene aún un adaptador de entrada que lo exponga por HTTP.
+
+---
+
+## 7. Registro de archivos del capítulo
 
 Tabla de control de los archivos que forman el contenido de este capítulo.
 
 **Leyenda:** 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
 
-### Documentación e imágenes
+### Build y configuración
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| 🌱 | [`docs/images/capitulo-05/swagger-ui-problemdetail.png`](docs/images/capitulo-05/swagger-ui-problemdetail.png) | Captura del esquema `ProblemDetail` en Swagger UI, embebida en la [sección 5](#5-cómo-probarlo). | --- |
+| ✏️ | [`pom.xml`](pom.xml) | POM padre multi-módulo del monorepo. | Registra el módulo nuevo `servicio-pedidos`. |
+| 🌱 | [`servicio-pedidos/pom.xml`](servicio-pedidos/pom.xml) | POM del microservicio de Pedidos: Spring Data JPA, Flyway, driver de PostgreSQL, MapStruct, Lombok y Testcontainers. | --- |
+| 🌱 | [`servicio-pedidos/compose.yaml`](servicio-pedidos/compose.yaml) | Entorno de desarrollo local: contenedor PostgreSQL. | --- |
+| 🌱 | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración del microservicio (nombre de la aplicación). | --- |
+| 🌱 | [`V1__crear_tablas_pedidos.sql`](servicio-pedidos/src/main/resources/db/migration/V1__crear_tablas_pedidos.sql) | Migración Flyway: tablas `pedidos` y `lineas_pedido`. | --- |
 
 ### Dominio
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| ✏️ | [`ProductoNoEncontradoException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/ProductoNoEncontradoException.java) | Excepción de dominio: no existe un producto con el id indicado. | Añade el campo `id` (con `@Getter` de Lombok) para exponerlo como extensión del `ProblemDetail`. |
-| ✏️ | [`CategoriaNoEncontradaException.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/dominio/excepcion/CategoriaNoEncontradaException.java) | Excepción de dominio: no existe una categoría con el id indicado. | Añade el campo `id` (con `@Getter` de Lombok) para exponerlo como extensión del `ProblemDetail`. |
+| 🌱 | [`ServicioPedidosApplication.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/ServicioPedidosApplication.java) | Clase de arranque de Spring Boot del microservicio de Pedidos. | --- |
+| 🌱 | [`PedidoId.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/PedidoId.java) | Objeto de Valor: identidad del agregado `Pedido`. | --- |
+| 🌱 | [`ClienteId.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/ClienteId.java) | Objeto de Valor: referencia al cliente propietario del pedido. | --- |
+| 🌱 | [`ProductoId.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/ProductoId.java) | Objeto de Valor: referencia a un producto del catálogo, propia de este Contexto Delimitado. | --- |
+| 🌱 | [`Precio.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/Precio.java) | Objeto de Valor: importe monetario no negativo. | --- |
+| 🌱 | [`Cantidad.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/Cantidad.java) | Objeto de Valor: cantidad de unidades de una línea de pedido, mayor que cero. | --- |
+| 🌱 | [`LineaPedido.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/entidad/LineaPedido.java) | Entidad interna al agregado `Pedido`: producto, cantidad y precio unitario congelado de una línea. | --- |
+| 🌱 | [`Pedido.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/agregado/Pedido.java) | Agregado raíz: cliente y líneas de un pedido, con el total calculado. | --- |
 
-### Infraestructura de entrada
+### Aplicación
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
-| ✏️ | [`ControladorErroresGlobal.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java) | `@RestControllerAdvice` centralizado que traduce las excepciones de dominio a respuestas HTTP. | Los tres `@ExceptionHandler` pasan de `ResponseEntity<String>` a `ProblemDetail` (RFC 7807/9457), con `type`/`title` propios por excepción y `productoId`/`categoriaId` como extensión donde aplica. |
-| ✏️ | [`ProductoController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/ProductoController.java) | Adaptador de entrada REST: endpoints de productos. | Las anotaciones `@Schema` de las respuestas `400`/`404` pasan de `implementation = String.class` a `implementation = ProblemDetail.class`. |
-| ✏️ | [`CategoriaController.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/rest/CategoriaController.java) | Adaptador de entrada REST: endpoints de categorías. | La anotación `@Schema` de la respuesta `404` pasa de `implementation = String.class` a `implementation = ProblemDetail.class`. |
+| 🌱 | [`CrearPedidoDTO.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/dto/entrada/CrearPedidoDTO.java) | DTO de entrada: cliente y líneas para crear un pedido. | --- |
+| 🌱 | [`LineaPedidoDTO.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/dto/entrada/LineaPedidoDTO.java) | DTO de entrada: una línea del pedido a crear. | --- |
+| 🌱 | [`PedidoDTO.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/dto/salida/PedidoDTO.java) | DTO de salida: representación de un pedido ya creado, con su total. | --- |
+| 🌱 | [`LineaPedidoDTO.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/dto/salida/LineaPedidoDTO.java) | DTO de salida: una línea del pedido, con su subtotal calculado. | --- |
+| 🌱 | [`PedidoMapper.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/mapper/PedidoMapper.java) | Mapper (MapStruct): `Pedido` (dominio) ↔ `PedidoDTO`. | --- |
+| 🌱 | [`CrearPedidoPuertoEntrada.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/puerto/entrada/CrearPedidoPuertoEntrada.java) | Puerto de entrada: caso de uso de creación de un pedido. | --- |
+| 🌱 | [`PedidoRepositorioPuertoSalida.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/puerto/salida/PedidoRepositorioPuertoSalida.java) | Puerto de salida: persistencia del agregado `Pedido`. | --- |
+| 🌱 | [`CrearPedidoServicio.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/servicio/CrearPedidoServicio.java) | Servicio de aplicación: implementa `CrearPedidoPuertoEntrada`. | --- |
+
+### Infraestructura de salida
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`PedidoEntidad.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/entidad/PedidoEntidad.java) | Entidad JPA: mapea la tabla `pedidos`. | --- |
+| 🌱 | [`LineaPedidoEntidad.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/entidad/LineaPedidoEntidad.java) | Entidad JPA: mapea la tabla `lineas_pedido`. | --- |
+| 🌱 | [`PedidoEntidadMapper.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/mapper/PedidoEntidadMapper.java) | Mapper (MapStruct): `Pedido` (dominio) ↔ `PedidoEntidad` (JPA). | --- |
+| 🌱 | [`PedidoRepositorioJpa.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/repositorio/PedidoRepositorioJpa.java) | Repositorio Spring Data JPA sobre `PedidoEntidad`. | --- |
+| 🌱 | [`PedidoRepositorioAdaptador.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/adaptador/PedidoRepositorioAdaptador.java) | Adaptador de salida: implementa `PedidoRepositorioPuertoSalida` sobre JPA. | --- |
+
+### Tests
+
+| | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|:---:|
+| 🌱 | [`PedidoTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/dominio/modelo/agregado/PedidoTest.java) | Test unitario del agregado `Pedido`. | --- |
+| 🌱 | [`PrecioTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/PrecioTest.java) | Test unitario del Objeto de Valor `Precio`. | --- |
+| 🌱 | [`CantidadTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/CantidadTest.java) | Test unitario del Objeto de Valor `Cantidad`. | --- |
+| 🌱 | [`CrearPedidoServicioTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/aplicacion/servicio/CrearPedidoServicioTest.java) | Test unitario del servicio de aplicación `CrearPedidoServicio` (Mockito). | --- |
+| 🌱 | [`PedidoRepositorioAdaptadorIntegrationTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/PedidoRepositorioAdaptadorIntegrationTest.java) | Test de integración del adaptador de persistencia JPA (Testcontainers + PostgreSQL real). | --- |
 
 ---
 
-## 7. Referencias
+## 8. Referencias
 
-- [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) (obsoleta la RFC 7807, sin cambiar su forma básica)
-- [RFC 7807 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc7807) (RFC original; sigue siendo el nombre por el que se conoce al patrón en la práctica)
-- [Spring Framework — Error Responses (Spring MVC)](https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html)
+- [Spring Data JPA — Reference Documentation](https://docs.spring.io/spring-data/jpa/reference/)
+- [Flyway — Documentation](https://documentation.red-gate.com/flyway)
+- [Spring Boot — Testcontainers support](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html)

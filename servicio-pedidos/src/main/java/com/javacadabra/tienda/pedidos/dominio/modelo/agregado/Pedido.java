@@ -1,0 +1,60 @@
+package com.javacadabra.tienda.pedidos.dominio.modelo.agregado;
+
+import com.javacadabra.tienda.pedidos.dominio.modelo.entidad.LineaPedido;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.PedidoId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.experimental.Accessors;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+@Getter
+@Accessors(fluent = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Pedido {
+
+	@EqualsAndHashCode.Include
+	private final PedidoId id;
+	private final ClienteId clienteId;
+	private final List<LineaPedido> lineas;
+	private final Instant fechaCreacion;
+
+	private Pedido(PedidoId id, ClienteId clienteId, List<LineaPedido> lineas, Instant fechaCreacion) {
+		this.id = id;
+		this.clienteId = clienteId;
+		this.lineas = lineas;
+		this.fechaCreacion = fechaCreacion;
+	}
+
+	public static Pedido crear(ClienteId clienteId) {
+		Objects.requireNonNull(clienteId, "El cliente del pedido no puede ser nulo");
+		return new Pedido(PedidoId.generar(), clienteId, new ArrayList<>(), Instant.now());
+	}
+
+	public static Pedido reconstruir(PedidoId id, ClienteId clienteId, List<LineaPedido> lineas, Instant fechaCreacion) {
+		return new Pedido(id, clienteId, new ArrayList<>(lineas), fechaCreacion);
+	}
+
+	public void agregarLinea(ProductoId productoId, Cantidad cantidad, Precio precioUnitario) {
+		lineas.add(LineaPedido.crear(productoId, cantidad, precioUnitario));
+	}
+
+	public List<LineaPedido> lineas() {
+		return List.copyOf(lineas);
+	}
+
+	public Precio total() {
+		BigDecimal total = lineas.stream()
+				.map(LineaPedido::subtotal)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		return Precio.de(total);
+	}
+}

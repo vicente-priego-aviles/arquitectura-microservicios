@@ -30,6 +30,7 @@
 
 	<modules>
 		<module>servicio-catalogo</module>
+		<module>servicio-pedidos</module>
 	</modules>
 
 	<properties>

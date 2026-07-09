@@ -1,0 +1,34 @@
+package com.javacadabra.tienda.pedidos.aplicacion.servicio;
+
+import com.javacadabra.tienda.pedidos.aplicacion.dto.entrada.CrearPedidoDTO;
+import com.javacadabra.tienda.pedidos.aplicacion.dto.salida.PedidoDTO;
+import com.javacadabra.tienda.pedidos.aplicacion.mapper.PedidoMapper;
+import com.javacadabra.tienda.pedidos.aplicacion.puerto.entrada.CrearPedidoPuertoEntrada;
+import com.javacadabra.tienda.pedidos.aplicacion.puerto.salida.PedidoRepositorioPuertoSalida;
+import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class CrearPedidoServicio implements CrearPedidoPuertoEntrada {
+
+	private final PedidoRepositorioPuertoSalida pedidoRepositorioPuertoSalida;
+	private final PedidoMapper pedidoMapper;
+
+	@Override
+	public PedidoDTO crear(CrearPedidoDTO dto) {
+		Pedido pedido = Pedido.crear(ClienteId.de(dto.clienteId()));
+		dto.lineas().forEach(linea -> pedido.agregarLinea(
+				ProductoId.de(linea.productoId()),
+				Cantidad.de(linea.cantidad()),
+				Precio.de(linea.precioUnitario())));
+
+		Pedido guardado = pedidoRepositorioPuertoSalida.guardar(pedido);
+		return pedidoMapper.aDTO(guardado);
+	}
+}

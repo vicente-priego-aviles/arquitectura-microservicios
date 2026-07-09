@@ -44,15 +44,16 @@ Descartados por forzados para este dominio o sin desarrollo futuro: Spring for A
 ## Arquitectura / DDD
 - [x] Arquitectura Hexagonal (puertos de entrada/salida + adaptadores)
 - [x] Agregado + Value Object (`Producto`, `Precio`, `ProductoId`)
-- [ ] Entidades internas al agregado (distintas del propio agregado) — candidato natural: líneas de pedido dentro del agregado `Pedido` (capítulo 6, ver hoja de ruta), no necesita capítulo propio
+- [x] Entidades internas al agregado (distintas del propio agregado) — `LineaPedido` dentro del agregado `Pedido` (capítulo 6): sin repositorio ni ciclo de vida propios, solo se crea a través de `Pedido.agregarLinea`
 - [x] Eventos de dominio — `ProductoCreadoEvento`/`RecomendacionAñadidaEvento` (capítulo 4), publicados con `ApplicationEventPublisher` desde los servicios de aplicación y consumidos con `@EventListener` síncrono dentro del mismo proceso; mecánica deliberadamente simple, sin broker externo (ver hoja de ruta para cuándo cruzan a otro proceso)
 - [x] Relaciones de grafo (Categoría, recomendaciones de producto)
 - [ ] jMolecules (anotaciones DDD)
 
 ## Persistencia
 - [x] Spring Data Neo4j (`servicio-catalogo` — grafo)
-- [ ] Migraciones/seed de datos — Flyway o Liquibase para el esquema relacional de `servicio-pedidos` (capítulo 6, ver hoja de ruta); el seed de datos de prueba usa la misma mecánica que la carga masiva del capítulo 16, a menor escala
-- [ ] Persistencia políglota: cada microservicio futuro puede usar el motor más adecuado a su modelo (p. ej. relacional con Spring Data JPA/PostgreSQL, documental con MongoDB, caché con Redis) — se concreta motor a motor según el microservicio
+- [x] Spring Data JPA (`servicio-pedidos` — relacional, capítulo 6)
+- [x] Migraciones de esquema — Flyway (capítulo 6) para el esquema relacional de `servicio-pedidos`: SQL plano en vez de Liquibase, para que el repositorio muestre el DDL real; `ddl-auto=none` (por defecto con Flyway presente y base de datos no embebida) deja a Flyway como única fuente de verdad del esquema. Seed de datos de prueba pendiente — se concretará con la misma mecánica que la carga masiva del capítulo 16, a menor escala
+- [x] Persistencia políglota — `servicio-pedidos` (capítulo 6) usa Spring Data JPA/PostgreSQL, frente al grafo Neo4j de `servicio-catalogo`: cada microservicio con el motor más adecuado a la forma de su propio modelo
 
 ## Herramientas de código
 - [x] MapStruct (mappers dominio↔DTO, dominio↔entidad)
@@ -94,7 +95,7 @@ Descartados por forzados para este dominio o sin desarrollo futuro: Spring for A
 
 ## Testing
 - [x] Test unitario de dominio (JUnit 5 + AssertJ)
-- [x] Test de integración con Testcontainers (Neo4j)
+- [x] Test de integración con Testcontainers (Neo4j, PostgreSQL)
 - [ ] ArchUnit (reglas de capas)
 - [ ] Test de contrato REST
 - [ ] Instancio (rellenar objetos sin invariantes: `ProductoEntidad`, DTOs. **No** para el agregado `Producto` ni para `ProductoId`/`Precio` —tienen validación en el constructor y rellenarlos por reflexión se saltaría esas invariantes—; ahí mejor generar los valores primitivos con Instancio/DataFaker y pasarlos a `Producto.crear(...)`)
