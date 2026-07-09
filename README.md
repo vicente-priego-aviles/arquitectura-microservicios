@@ -220,10 +220,14 @@ Por ahora es el único `@ExceptionHandler`: las validaciones de `Pedido` / `Line
 ./mvnw -pl servicio-pedidos spring-boot:run
 ```
 
+> **¿Por qué `servicio-pedidos` arranca en el puerto 8081 y no en el 8080 por defecto?**
+>
+> Ningún `application.yml` de este monorepo fijaba hasta ahora `server.port` — cada microservicio arrancaba en el 8080 por defecto de Spring Boot porque nunca se habían levantado dos a la vez. Con `servicio-pedidos` sumándose a `servicio-catalogo`, ambos en el mismo puerto chocarían en cuanto se arrancaran juntos, así que `servicio-pedidos` fija explícitamente `server.port: 8081` en su `application.yml`. `servicio-catalogo` se queda en el 8080 por defecto, sin cambios.
+
 Con el servicio arrancado (y PostgreSQL levantado automáticamente vía `compose.yaml`, con Flyway aplicando la migración en el arranque):
 
 ```bash
-curl -i http://localhost:8080/api/pedidos -X POST -H "Content-Type: application/json" -d '{
+curl -i http://localhost:8081/api/pedidos -X POST -H "Content-Type: application/json" -d '{
   "clienteId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "lineas": [
     {"productoId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "cantidad": 2, "precioUnitario": 19.99},
@@ -251,7 +255,7 @@ Content-Type: application/json
 Un cliente vacío dispara la rama de `IllegalArgumentException`, con el mismo formato `ProblemDetail` que ya usa Catálogo desde el capítulo 5:
 
 ```bash
-curl -i http://localhost:8080/api/pedidos -X POST -H "Content-Type: application/json" -d '{}'
+curl -i http://localhost:8081/api/pedidos -X POST -H "Content-Type: application/json" -d '{}'
 ```
 
 ```http
@@ -267,7 +271,7 @@ Content-Type: application/problem+json
 }
 ```
 
-Desde Swagger UI (`http://localhost:8080/swagger-ui/index.html`):
+Desde Swagger UI (`http://localhost:8081/swagger-ui/index.html`):
 
 ![Swagger UI ejecutando POST /api/pedidos con dos líneas de ejemplo, mostrando el curl equivalente y la respuesta 201 con el pedido creado](docs/images/capitulo-06/swagger-ui-crear-pedido.png)
 
@@ -313,7 +317,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 | ✏️ | [`pom.xml`](pom.xml) | POM padre multi-módulo del monorepo. | Registra el módulo nuevo `servicio-pedidos`. |
 | 🌱 | [`servicio-pedidos/pom.xml`](servicio-pedidos/pom.xml) | POM del microservicio de Pedidos: Spring MVC, springdoc-openapi, Spring Data JPA, Flyway, driver de PostgreSQL, MapStruct, Lombok y Testcontainers. | --- |
 | 🌱 | [`servicio-pedidos/compose.yaml`](servicio-pedidos/compose.yaml) | Entorno de desarrollo local: contenedor PostgreSQL. | --- |
-| 🌱 | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración del microservicio (nombre de la aplicación). | --- |
+| 🌱 | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración del microservicio (nombre de la aplicación, puerto 8081 para no chocar con `servicio-catalogo`). | --- |
 | 🌱 | [`V1__crear_tablas_pedidos.sql`](servicio-pedidos/src/main/resources/db/migration/V1__crear_tablas_pedidos.sql) | Migración Flyway: tablas `pedidos` y `lineas_pedido`. | --- |
 
 ### Dominio
