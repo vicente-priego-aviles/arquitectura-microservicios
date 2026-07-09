@@ -22,20 +22,27 @@ Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle 
 
 ## Stack tecnológico
 
-Versiones tal como están fijadas en el `pom.xml` del último capítulo — cada fila enlaza al capítulo donde se introdujo.
+Versiones fijadas explícitamente como propiedad en el `pom.xml` raíz — cada fila enlaza al capítulo donde se introdujo:
 
 | Tecnología | Versión | Uso |
 |---|---|---|
 | Java | 25 | Lenguaje base |
-| Spring Boot | 4.1.0 | Framework de aplicación |
+| Spring Boot | 4.1.0 | Framework de aplicación (BOM padre del monorepo) |
 | Spring Cloud | 2025.1.2 | BOM de dependencias inter-servicio |
-| [Spring Data Neo4j](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | — | Persistencia en grafo (`servicio-catalogo`) |
-| [Spring Data JPA + PostgreSQL](../../tree/capitulo-06-servicio-pedidos) | — | Persistencia relacional (`servicio-pedidos`) |
-| [Flyway](../../tree/capitulo-06-servicio-pedidos) | — | Migraciones de esquema (`servicio-pedidos`) |
-| [springdoc-openapi](../../tree/capitulo-03-openapi-swagger) | 3.0.3 | OpenAPI 3 / Swagger UI |
 | MapStruct | 1.6.3 | Mapeo dominio↔DTO, dominio↔entidad |
-| Lombok | — | Reduce boilerplate (getters, constructores) |
 | Testcontainers | 1.21.4 | Tests de integración con infraestructura real |
+| [springdoc-openapi](../../tree/capitulo-03-openapi-swagger) | 3.0.3 | OpenAPI 3 / Swagger UI |
+
+Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-parent` (suben solas al actualizar la versión de Spring Boot):
+
+| Tecnología | Versión resuelta | Uso |
+|---|---|---|
+| Lombok | 1.18.46 | Reduce boilerplate (getters, constructores) |
+| Spring Framework | 7.0.8 | Núcleo de Spring Boot 4.1 (Spring MVC, Spring Web) |
+| [Spring Data Neo4j](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | 8.1.0 | Persistencia en grafo (`servicio-catalogo`) |
+| [Spring Data JPA](../../tree/capitulo-06-servicio-pedidos) | 4.1.0 | Persistencia relacional (`servicio-pedidos`) |
+| [Flyway](../../tree/capitulo-06-servicio-pedidos) | 12.4.0 | Migraciones de esquema (`servicio-pedidos`) |
+| PostgreSQL JDBC driver | 42.7.11 | Driver de conexión (`servicio-pedidos`) |
 | Docker Compose | — | Entorno de desarrollo local |
 
 Ver [CLAUDE.md](CLAUDE.md) para la guía completa de convenciones (idioma, arquitectura, modelo de ramas).
