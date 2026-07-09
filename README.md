@@ -1,8 +1,8 @@
 # arquitectura-microservicios
 
-![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white)
-![Licencia](https://img.shields.io/badge/Licencia-Apache%202.0-blue)
+[![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/25/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F?logo=springboot&logoColor=white)](https://docs.spring.io/spring-boot/index.html)
+[![Licencia](https://img.shields.io/badge/Licencia-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
 De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un tutorial. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
 
