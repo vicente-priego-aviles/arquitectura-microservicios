@@ -28,7 +28,7 @@ Detalles del Problema (Problem Details) es un formato JSON estandarizado para re
 
 | Campo | Significado |
 |---|---|
-| `type` | URI que identifica el tipo de problema. No hace falta que resuelva a una página real — es un identificador, aunque la RFC recomienda que si se dereferencia, devuelva documentación legible para humanos. Por defecto, `"about:blank"`. |
+| `type` | URI que identifica el tipo de problema. No hace falta que resuelva a una página real — es un identificador, aunque la RFC recomienda que si se resuelve, devuelva documentación legible para humanos. Por defecto, `"about:blank"`. |
 | `title` | Resumen corto y legible del tipo de problema, constante para todas las instancias del mismo `type` (a diferencia de `detail`, que sí varía). |
 | `status` | El código de estado HTTP, repetido aquí para que un cliente que solo mira el cuerpo (y no la cabecera HTTP) también lo tenga. |
 | `detail` | Explicación específica de esta instancia del problema — aquí es donde antes iba todo el mensaje de la excepción. |
@@ -40,7 +40,7 @@ Spring Framework modela este formato con la clase `org.springframework.http.Prob
 
 > **¿Por qué no lanzar directamente `ErrorResponseException` en el dominio?**
 >
-> Spring también ofrece `ErrorResponseException`, una excepción que ya implementa la interfaz `ErrorResponse` y lleva su propio `ProblemDetail` incorporado — lanzarla evitaría el `@ExceptionHandler` por completo, porque `ResponseEntityExceptionHandler` (otra clase de Spring) ya sabe convertirla en la respuesta HTTP. Pero eso obligaría a las excepciones del paquete `dominio.excepcion` a extender una clase de `org.springframework.web`, exactamente el acoplamiento a un framework que la capa de dominio de este proyecto evita en cualquier otra circunstancia (ver `CLAUDE.md`, tabla de capas). Mantener `CategoriaNoEncontradaException`/`ProductoNoEncontradoException` como `RuntimeException` planas y traducirlas a `ProblemDetail` en `ControladorErroresGlobal` — que ya vive en `infraestructura`, la capa que sí conoce Spring — deja esa traducción donde corresponde.
+> Spring también ofrece `ErrorResponseException`, una excepción que ya implementa la interfaz `ErrorResponse` y lleva su propio `ProblemDetail` incorporado — lanzarla evitaría el `@ExceptionHandler` por completo, porque `ResponseEntityExceptionHandler` (otra clase de Spring) ya sabe convertirla en la respuesta HTTP. Pero eso obligaría a las excepciones del paquete `dominio.excepcion` a extender una clase de `org.springframework.web`, exactamente el acoplamiento a un framework que la capa de dominio de este proyecto evita en cualquier otra circunstancia. Mantener `CategoriaNoEncontradaException`/`ProductoNoEncontradoException` como `RuntimeException` planas y traducirlas a `ProblemDetail` en `ControladorErroresGlobal` — que ya vive en `infraestructura`, la capa que sí conoce Spring — deja esa traducción donde corresponde.
 
 ---
 
