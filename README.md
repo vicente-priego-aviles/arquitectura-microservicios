@@ -11,6 +11,8 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 2 | [`capitulo-02-relaciones-de-grafo-categoria`](../../tree/capitulo-02-relaciones-de-grafo-categoria) | Relaciones de grafo (Categoría) | servicio-catalogo | ✅ |
 | 3 | [`capitulo-03-openapi-swagger`](../../tree/capitulo-03-openapi-swagger) | Documentación de la API con OpenAPI3/Swagger | servicio-catalogo | ✅ |
 | 4 | [`capitulo-04-eventos-dominio`](../../tree/capitulo-04-eventos-dominio) | Eventos de dominio (`ApplicationEventPublisher`/`@EventListener`) | servicio-catalogo | ✅ |
+| 5 | [`capitulo-05-problemdetail-rfc7807`](../../tree/capitulo-05-problemdetail-rfc7807) | ProblemDetail (RFC 7807/9457) | servicio-catalogo | ✅ |
+| 6 | [`capitulo-06-servicio-pedidos`](../../tree/capitulo-06-servicio-pedidos) | Segundo microservicio: Pedidos (JPA/PostgreSQL) | servicio-pedidos | ✅ |
 
 Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
