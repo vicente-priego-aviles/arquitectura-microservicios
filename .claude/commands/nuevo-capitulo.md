@@ -45,6 +45,7 @@ Crea un `README.md` nuevo (no lo generes completo — es un punto de partida, el
 
 - `CHECKLIST.md` ya viene heredado de la rama base — se actualiza a medida que el capítulo cubre temas nuevos, como parte del mismo commit que los introduce.
 - `GLOSARIO.md`: si el capítulo introduce un término técnico nuevo, se añade esa fila al glosario en el mismo commit que lo introduce por primera vez en el README (ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo").
+- Revisa las secciones de candidatos sin comprometer de `CHECKLIST.md` (p. ej. "Otros proyectos de Spring — candidatos anotados", "Otras técnicas/herramientas candidatas") — si alguno encaja con el tema de este capítulo, coméntaselo al usuario antes de dar el capítulo por cerrado, para que la decisión de incluirlo o no se tome de forma consciente y no se olvide sin más.
 
 ## 6. No commitees automáticamente
 
