@@ -11,8 +11,9 @@ Sexto capítulo del tutorial "De cero a pro en arquitectura de microservicios co
 5. [Migración de esquema (Schema Migration) con Flyway y mapeo JPA](#5-migración-de-esquema-schema-migration-con-flyway-y-mapeo-jpa)
 6. [API REST: `PedidoController` y `ProblemDetail`](#6-api-rest-pedidocontroller-y-problemdetail)
 7. [Cómo probarlo](#7-cómo-probarlo)
-8. [Registro de archivos del capítulo](#8-registro-de-archivos-del-capítulo)
-9. [Referencias](#9-referencias)
+8. [Inspeccionar los datos persistidos: IntelliJ, DBeaver y psql](#8-inspeccionar-los-datos-persistidos-intellij-dbeaver-y-psql)
+9. [Registro de archivos del capítulo](#9-registro-de-archivos-del-capítulo)
+10. [Referencias](#10-referencias)
 
 ---
 
@@ -123,7 +124,7 @@ Persistencia políglota es justamente esto: cada microservicio elige el motor de
 
 Con un esquema relacional entra por primera vez en el monorepo la pregunta de quién crea las tablas. La opción por defecto de Hibernate (`ddl-auto=update`/`create`) genera el esquema a partir de las entidades JPA en cada arranque — cómoda para prototipar, pero sin ningún registro versionado de cómo evolucionó ese esquema, y arriesgada en cuanto hay datos reales que no se pueden simplemente regenerar. Una Migración de esquema resuelve esto con scripts versionados que se aplican una sola vez, en orden, y quedan registrados en una tabla de control — el mismo espíritu que un historial de commits, pero para el esquema de la base de datos.
 
-Este capítulo usa [Flyway](#9-referencias) en vez de Liquibase: las migraciones son SQL plano, así que lo que se lee en el repositorio es el DDL real que se ejecuta contra PostgreSQL, no una capa de abstracción XML/YAML intermedia. Spring Boot 4.1 le da soporte de primera clase con su propio starter modular (`spring-boot-starter-flyway`), separado del starter de PostgreSQL:
+Este capítulo usa [Flyway](#10-referencias) en vez de Liquibase: las migraciones son SQL plano, así que lo que se lee en el repositorio es el DDL real que se ejecuta contra PostgreSQL, no una capa de abstracción XML/YAML intermedia. Spring Boot 4.1 le da soporte de primera clase con su propio starter modular (`spring-boot-starter-flyway`), separado del starter de PostgreSQL:
 
 ```sql
 CREATE TABLE pedidos (
@@ -296,7 +297,94 @@ Hibernate: insert into lineas_pedido (cantidad,pedido_id,precio_unitario,product
 
 ---
 
-## 8. Registro de archivos del capítulo
+## 8. Inspeccionar los datos persistidos: IntelliJ, DBeaver y psql
+
+Con el servicio arrancado, cualquier cliente de PostgreSQL se conecta al contenedor que levanta `compose.yaml` con los mismos datos:
+
+| Campo | Valor |
+|---|---|
+| Host | `localhost` |
+| Puerto | `5432` |
+| Base de datos | `pedidos` |
+| Usuario | `pedidos` |
+| Contraseña | `notverysecret` |
+
+Tres formas de usarlos, según la herramienta disponible.
+
+### 8.1 IntelliJ IDEA — panel Database
+
+El panel **Database** (lateral derecho, o **View → Tool Windows → Database**) conecta directamente sin salir del IDE:
+
+1. **+** → **Data Source** → **PostgreSQL**.
+2. Rellena el formulario con los datos de conexión de arriba.
+3. **Test Connection** — la primera vez, IntelliJ ofrece descargar el driver JDBC de PostgreSQL si no lo tiene ya.
+4. **OK**.
+
+![Formulario de Data Source PostgreSQL en el panel Database de IntelliJ](docs/images/capitulo-06/intellij-database-postgresql.png)
+
+*Formulario de Data Source de IntelliJ con la conexión al PostgreSQL de `servicio-pedidos` ya rellena.*
+
+<br>
+
+Con la conexión abierta, el árbol **pedidos → schemas → public → tables** muestra las tablas reales creadas por `V1__crear_tablas_pedidos.sql`: `pedidos`, `lineas_pedido` y `flyway_schema_history` (la tabla de control que usa Flyway para saber qué versiones ya aplicó).
+
+![Árbol de esquema en el panel Database de IntelliJ mostrando las tablas pedidos, lineas_pedido y flyway_schema_history](docs/images/capitulo-06/intellij-database-tablas-pedidos.png)
+
+*Árbol de esquema del panel Database, con las tres tablas del capítulo y las columnas/claves/índices de `pedidos` expandidas.*
+
+<br>
+
+> **¿Por qué no puedo abrir esas tablas en un editor de filas con doble clic?**
+>
+> La vista de datos en modo tabla (pestaña "Data") es parte del plugin **Database Tools and SQL**, restringido a las ediciones de pago (IntelliJ IDEA Ultimate/DataGrip) — con la licencia usada para este tutorial, el panel Database conecta y navega el esquema, como en las dos capturas anteriores, pero no abre esa vista de filas. Las dos secciones siguientes cubren alternativas gratuitas para ver el contenido real de las tablas.
+
+### 8.2 DBeaver Community
+
+[DBeaver Community](https://dbeaver.io/) es gratuito, multiplataforma y sin restricciones de edición — la alternativa directa para ver filas cuando IntelliJ no lo permite:
+
+1. **Nueva conexión** → **PostgreSQL**.
+2. Rellena el formulario con los mismos datos de conexión de arriba.
+3. **Test Connection...** → **Finish**.
+
+![Formulario de conexión PostgreSQL en DBeaver, con los datos de servicio-pedidos ya rellenos](docs/images/capitulo-06/dbeaver-conexion.png)
+
+*Formulario de conexión de DBeaver con los mismos datos de la tabla anterior (`localhost:5432`, base `pedidos`, usuario `pedidos`).*
+
+<br>
+
+Sobre la tabla `pedidos`, DBeaver expone en pestañas separadas lo que IntelliJ Community reparte entre el árbol de esquema (sin datos) y una vista de filas que aquí no está disponible:
+
+![Pestaña Datos de la tabla pedidos en DBeaver, con la fila insertada por el pedido de prueba](docs/images/capitulo-06/dbeaver-pedidos-datos.png)
+
+*Pestaña **Datos**: filas reales de `pedidos`, incluida la insertada por el `curl` de la [sección 7](#7-cómo-probarlo) — la vista que IntelliJ Community no permite abrir.*
+
+<br>
+
+![Pestaña Diagrama de la tabla pedidos en DBeaver, mostrando la relación con lineas_pedido](docs/images/capitulo-06/dbeaver-pedidos-diagrama.png)
+
+*Pestaña **Diagrama**: relación `pedidos` → `lineas_pedido` generada automáticamente a partir de la clave foránea `pedido_id`.*
+
+### 8.3 psql — línea de comandos
+
+Sin instalar nada aparte de Docker: `psql` ya viene dentro de la propia imagen `postgres:latest` que levanta `compose.yaml`, así que basta con entrar al contenedor:
+
+```bash
+docker exec -it servicio-pedidos-postgres-1 psql -U pedidos -d pedidos
+```
+
+Y, ya dentro de la sesión:
+
+```sql
+SELECT * FROM pedidos;
+```
+
+![Terminal con una sesión psql mostrando el resultado de SELECT * FROM pedidos](docs/images/capitulo-06/psql-select-pedidos.png)
+
+*Sesión `psql` dentro del contenedor, con el resultado de `SELECT * FROM pedidos` — la vía más ligera cuando no hace falta una interfaz gráfica.*
+
+---
+
+## 9. Registro de archivos del capítulo
 
 Tabla de control de los archivos que forman el contenido de este capítulo.
 
@@ -309,6 +397,12 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 | 🌱 | [`docs/diagramas/capitulo-06-modelo-relacional-pedidos.excalidraw`](docs/diagramas/capitulo-06-modelo-relacional-pedidos.excalidraw) | Diagrama Excalidraw (fuente editable) del modelo relacional `pedidos`/`lineas_pedido`. | --- |
 | 🌱 | [`docs/images/capitulo-06/modelo-relacional-pedidos.png`](docs/images/capitulo-06/modelo-relacional-pedidos.png) | Render del diagrama anterior, embebido en la [sección 4](#4-persistencia-políglota-polyglot-persistence-por-qué-jpapostgresql-frente-al-grafo-de-neo4j). | --- |
 | 🌱 | [`docs/images/capitulo-06/swagger-ui-crear-pedido.png`](docs/images/capitulo-06/swagger-ui-crear-pedido.png) | Captura de Swagger UI ejecutando `POST /api/pedidos`, embebida en la [sección 7](#7-cómo-probarlo). | --- |
+| 🌱 | [`docs/images/capitulo-06/intellij-database-postgresql.png`](docs/images/capitulo-06/intellij-database-postgresql.png) | Captura del formulario de Data Source PostgreSQL en el panel Database de IntelliJ, embebida en la [sección 8.1](#81-intellij-idea--panel-database). | --- |
+| 🌱 | [`docs/images/capitulo-06/intellij-database-tablas-pedidos.png`](docs/images/capitulo-06/intellij-database-tablas-pedidos.png) | Captura del árbol de esquema del panel Database de IntelliJ, embebida en la [sección 8.1](#81-intellij-idea--panel-database). | --- |
+| 🌱 | [`docs/images/capitulo-06/dbeaver-conexion.png`](docs/images/capitulo-06/dbeaver-conexion.png) | Captura del formulario de conexión PostgreSQL en DBeaver, embebida en la [sección 8.2](#82-dbeaver-community). | --- |
+| 🌱 | [`docs/images/capitulo-06/dbeaver-pedidos-datos.png`](docs/images/capitulo-06/dbeaver-pedidos-datos.png) | Captura de la pestaña Datos de la tabla `pedidos` en DBeaver, embebida en la [sección 8.2](#82-dbeaver-community). | --- |
+| 🌱 | [`docs/images/capitulo-06/dbeaver-pedidos-diagrama.png`](docs/images/capitulo-06/dbeaver-pedidos-diagrama.png) | Captura de la pestaña Diagrama de la tabla `pedidos` en DBeaver, embebida en la [sección 8.2](#82-dbeaver-community). | --- |
+| 🌱 | [`docs/images/capitulo-06/psql-select-pedidos.png`](docs/images/capitulo-06/psql-select-pedidos.png) | Captura de una sesión `psql` ejecutando `SELECT * FROM pedidos`, embebida en la [sección 8.3](#83-psql--línea-de-comandos). | --- |
 
 ### Build y configuración
 
@@ -375,7 +469,7 @@ Tabla de control de los archivos que forman el contenido de este capítulo.
 
 ---
 
-## 9. Referencias
+## 10. Referencias
 
 - [Spring Data JPA — Reference Documentation](https://docs.spring.io/spring-data/jpa/reference/)
 - [Flyway — Documentation](https://documentation.red-gate.com/flyway)
