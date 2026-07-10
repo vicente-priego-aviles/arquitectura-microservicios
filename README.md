@@ -11,20 +11,30 @@
 
 De cero a pro en arquitectura de microservicios con Spring Boot — una tienda online construida y documentada capítulo a capítulo, como un tutorial. Cada rama de Git es un capítulo; los capítulos son acumulativos (cada uno parte del anterior).
 
+> **¿Por qué no hay código en esta rama?**
+>
+> `main` contiene únicamente este índice de capítulos: el código de cada microservicio vive en su propia rama de capítulo. Para explorar o ejecutar un capítulo concreto, haz `git checkout` a la rama correspondiente (p. ej. `git checkout capitulo-07-http-service-client`) — cada una incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+
+![Mapa de arquitectura de la tienda Javacadabra: servicio-catalogo (Neo4j) y servicio-pedidos (PostgreSQL) sobre Java/Spring Boot, conectados por HTTP Service Client, con hueco reservado para próximos capítulos](docs/images/mapa-arquitectura-sistema.png)
+
+*Mapa de arquitectura del sistema — se amplía capítulo a capítulo a medida que se añaden microservicios y tecnologías nuevas.*
+
+<br>
+
 ## Índice de capítulos
 
-| # | Rama | Título | Microservicio | Estado |
-|---|------|--------|----------------|--------|
-| 0 | [`capitulo-00-configuracion-inicial-spring-initializr`](../../tree/capitulo-00-configuracion-inicial-spring-initializr) | Configuración inicial: Spring Initializr, Lombok, MapStruct | — | ✅ |
-| 1 | [`capitulo-01-fundamentos-ddd-hexagonal`](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | Fundamentos DDD + Arquitectura Hexagonal | servicio-catalogo | ✅ |
-| 2 | [`capitulo-02-relaciones-de-grafo-categoria`](../../tree/capitulo-02-relaciones-de-grafo-categoria) | Relaciones de grafo (Categoría) | servicio-catalogo | ✅ |
-| 3 | [`capitulo-03-openapi-swagger`](../../tree/capitulo-03-openapi-swagger) | Documentación de la API con OpenAPI3/Swagger | servicio-catalogo | ✅ |
-| 4 | [`capitulo-04-eventos-dominio`](../../tree/capitulo-04-eventos-dominio) | Eventos de dominio (`ApplicationEventPublisher`/`@EventListener`) | servicio-catalogo | ✅ |
-| 5 | [`capitulo-05-problemdetail-rfc7807`](../../tree/capitulo-05-problemdetail-rfc7807) | ProblemDetail (RFC 7807/9457) | servicio-catalogo | ✅ |
-| 6 | [`capitulo-06-servicio-pedidos`](../../tree/capitulo-06-servicio-pedidos) | Segundo microservicio: Pedidos (JPA/PostgreSQL) | servicio-pedidos | ✅ |
-| 7 | [`capitulo-07-http-service-client`](../../tree/capitulo-07-http-service-client) | Comunicación entre microservicios: Spring HTTP Service Client | servicio-pedidos | ✅ |
+| # | Rama | Título | Microservicio | Conceptos clave |
+|---|------|--------|----------------|------------------|
+| 0 | [`capitulo-00-configuracion-inicial-spring-initializr`](../../tree/capitulo-00-configuracion-inicial-spring-initializr) | Configuración inicial: Spring Initializr, Lombok, MapStruct | — | Spring Initializr, Lombok, MapStruct |
+| 1 | [`capitulo-01-fundamentos-ddd-hexagonal`](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | Fundamentos DDD + Arquitectura Hexagonal | servicio-catalogo | DDD, Arquitectura Hexagonal, puertos y adaptadores |
+| 2 | [`capitulo-02-relaciones-de-grafo-categoria`](../../tree/capitulo-02-relaciones-de-grafo-categoria) | Relaciones de grafo (Categoría) | servicio-catalogo | Neo4j, relaciones de grafo |
+| 3 | [`capitulo-03-openapi-swagger`](../../tree/capitulo-03-openapi-swagger) | Documentación de la API con OpenAPI3/Swagger | servicio-catalogo | OpenAPI 3, Swagger UI |
+| 4 | [`capitulo-04-eventos-dominio`](../../tree/capitulo-04-eventos-dominio) | Eventos de dominio (`ApplicationEventPublisher`/`@EventListener`) | servicio-catalogo | Eventos de dominio, `ApplicationEventPublisher` |
+| 5 | [`capitulo-05-problemdetail-rfc7807`](../../tree/capitulo-05-problemdetail-rfc7807) | ProblemDetail (RFC 7807/9457) | servicio-catalogo | `ProblemDetail`, RFC 7807/9457 |
+| 6 | [`capitulo-06-servicio-pedidos`](../../tree/capitulo-06-servicio-pedidos) | Segundo microservicio: Pedidos (JPA/PostgreSQL) | servicio-pedidos | JPA, PostgreSQL, Flyway |
+| 7 | [`capitulo-07-http-service-client`](../../tree/capitulo-07-http-service-client) | Comunicación entre microservicios: Spring HTTP Service Client | servicio-pedidos | `@HttpExchange`, Capa Anticorrupción |
 
-Consulta el `CHECKLIST.md` de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-07-http-service-client/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
