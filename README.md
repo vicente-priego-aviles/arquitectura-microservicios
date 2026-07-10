@@ -30,7 +30,7 @@ Este capítulo añade tres mecanismos de resiliencia sobre esa misma llamada, ca
 
 Los dos primeros son nativos de Spring Framework 7, activados con una única anotación de configuración (`@EnableResilientMethods`) y aplicados método a método con `@Retryable`/`@ConcurrencyLimit`. El circuit breaker no tiene equivalente nativo en Spring Framework 7 — se cubre en una sección posterior con Resilience4j.
 
----
+De paso, con dos microservicios ya repitiendo el mismo patrón de anotaciones Swagger en sus controllers, aprovechamos para extraerlas a una interfaz propia que el controller se limita a implementar — una limpieza pequeña, pero que vale la pena hacer ahora que el patrón se repite por segunda vez.
 
 ## 2. Reintentos con `@Retryable`
 
@@ -516,16 +516,6 @@ El resto de tests de la clase cubren, con la misma técnica: que tras esos 4 fal
 
 ## 6. Registro de archivos del capítulo
 
-🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
-
-### Documentación e imágenes
-
-| | Archivo | Descripción funcional | Descripción del cambio |
-|:---:|---|---|:---:|
-| 🌱 | [`docs/diagramas/capitulo-08-circuit-breaker-estados.excalidraw`](docs/diagramas/capitulo-08-circuit-breaker-estados.excalidraw) | Diagrama Excalidraw (fuente editable) de la máquina de estados del circuit breaker | --- |
-| 🌱 | [`docs/images/capitulo-08/circuit-breaker-estados.png`](docs/images/capitulo-08/circuit-breaker-estados.png) | Render del diagrama anterior, embebido en la [sección 4](#4-circuit-breaker-con-resilience4j) | --- |
-
-Además, se desligó el texto de su contenedor (`containerId`) en los diagramas Excalidraw (y sus PNG) de los capítulos 1, 2, 6 y 7 — `capitulo-01-arquitectura-hexagonal`, `capitulo-01-secuencia-crear-producto`, `capitulo-02-modelo-grafo-categoria`, `capitulo-02-secuencia-recomendar-producto`, `capitulo-06-modelo-relacional-pedidos` y `capitulo-07-secuencia-crear-pedido` —, y se ajustó el tamaño de letra de un par de etiquetas para evitar que el texto se recortara. Corrige un fallo del plugin de Excalidraw para IntelliJ que dejaba ese texto invisible en el editor (sin cambios visuales en los PNG renderizados).
 
 ### Build y configuración
 
