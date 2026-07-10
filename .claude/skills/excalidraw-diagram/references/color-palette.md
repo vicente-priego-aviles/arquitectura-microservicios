@@ -27,6 +27,18 @@ Reconstruida a partir de los diagramas ya publicados (`docs/diagramas/capitulo-0
 
 **Por qué "uno=amarillo/naranja, muchos=azul"**: convención fijada en `capitulo-02-modelo-grafo-categoria.excalidraw` (Categoría=amarillo, Producto=azul) y reutilizada en `capitulo-06-modelo-relacional-pedidos.excalidraw` (pedidos=amarillo, lineas_pedido=azul) — mantenerla en diagramas futuros para que el color por sí solo ya comunique qué lado de una relación 1:N es cada bloque, sin tener que leer las etiquetas.
 
+## Semántica de color — estado de salud / máquinas de estados
+
+Categoría distinta de la anterior (esa es para relaciones "uno/muchos" en diagramas tipo ER; esta es para nodos que representan un estado de salud/disponibilidad, como en un circuit breaker). No reutilizar el amarillo/naranja de "lado uno" aquí — significaría algo distinto y confundiría a quien ya conoce esa convención.
+
+| Estado | Stroke | Fill | Texto |
+|---|---|---|---|
+| Saludable / cerrado / OK (p. ej. `CLOSED`) | `#2b8a3e` (verde) | `#d3f9d8` (verde pálido) | `#1b4332` |
+| Fallando / abierto / bloqueado (p. ej. `OPEN`) | `#c92a2a` (rojo) | `#ffc9c9` (rojo pálido) | `#7d1a1a` |
+| Transición / probando / advertencia (p. ej. `HALF_OPEN`) | `#f08c00` (ámbar) | `#ffe8cc` (ámbar pálido) | `#7c4a03` |
+
+Fijada en `capitulo-08-circuit-breaker-estados.excalidraw` (máquina de estados `CLOSED`/`OPEN`/`HALF_OPEN` de Resilience4j) — semáforo universal (verde/ámbar/rojo), reutilizable en cualquier diagrama futuro que necesite representar un estado de salud o disponibilidad (p. ej. dashboards de observabilidad en capítulos posteriores).
+
 ## Notas de renderizado
 
 - Un elemento de texto con `backgroundColor` **no siempre se pinta de forma fiable** por debajo de una flecha que pasa justo por encima (comprobado en `capitulo-06`) — mejor separar la etiqueta de la línea (por encima o por debajo, sin cruzarla) que confiar en que el fondo blanco la tape.

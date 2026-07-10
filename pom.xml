@@ -40,6 +40,7 @@
 		<lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
 		<testcontainers.version>1.21.4</testcontainers.version>
 		<springdoc-openapi.version>3.0.3</springdoc-openapi.version>
+		<resilience4j.version>2.3.0</resilience4j.version>
 	</properties>
 
 	<dependencyManagement>
@@ -55,6 +56,13 @@
 				<groupId>org.testcontainers</groupId>
 				<artifactId>testcontainers-bom</artifactId>
 				<version>${testcontainers.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>io.github.resilience4j</groupId>
+				<artifactId>resilience4j-bom</artifactId>
+				<version>${resilience4j.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
