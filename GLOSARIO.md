@@ -30,5 +30,6 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | Contexto Delimitado | Bounded Context | |
 | Persistencia políglota | Polyglot Persistence | |
 | Migración de esquema | Schema Migration | Herramientas: Flyway (SQL plano) o Liquibase (XML/YAML/JSON) |
+| Capa Anticorrupción | Anti-Corruption Layer | Traduce la respuesta de un Contexto Delimitado ajeno (p. ej. `servicio-catalogo`) a un tipo propio del Contexto que la consume, en vez de propagar el contrato externo tal cual |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.

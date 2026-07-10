@@ -4,7 +4,9 @@ import com.javacadabra.tienda.pedidos.aplicacion.dto.entrada.CrearPedidoDTO;
 import com.javacadabra.tienda.pedidos.aplicacion.dto.salida.PedidoDTO;
 import com.javacadabra.tienda.pedidos.aplicacion.mapper.PedidoMapper;
 import com.javacadabra.tienda.pedidos.aplicacion.puerto.entrada.CrearPedidoPuertoEntrada;
+import com.javacadabra.tienda.pedidos.aplicacion.puerto.salida.CatalogoPuertoSalida;
 import com.javacadabra.tienda.pedidos.aplicacion.puerto.salida.PedidoRepositorioPuertoSalida;
+import com.javacadabra.tienda.pedidos.aplicacion.puerto.salida.ProductoCatalogoDTO;
 import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
@@ -18,15 +20,17 @@ import org.springframework.stereotype.Service;
 public class CrearPedidoServicio implements CrearPedidoPuertoEntrada {
 
 	private final PedidoRepositorioPuertoSalida pedidoRepositorioPuertoSalida;
+	private final CatalogoPuertoSalida catalogoPuertoSalida;
 	private final PedidoMapper pedidoMapper;
 
 	@Override
 	public PedidoDTO crear(CrearPedidoDTO dto) {
 		Pedido pedido = Pedido.crear(ClienteId.de(dto.clienteId()));
-		dto.lineas().forEach(linea -> pedido.agregarLinea(
-				ProductoId.de(linea.productoId()),
-				Cantidad.de(linea.cantidad()),
-				Precio.de(linea.precioUnitario())));
+		dto.lineas().forEach(linea -> {
+			ProductoId productoId = ProductoId.de(linea.productoId());
+			ProductoCatalogoDTO producto = catalogoPuertoSalida.buscarProductoPorId(productoId);
+			pedido.agregarLinea(productoId, Cantidad.de(linea.cantidad()), Precio.de(producto.precio()));
+		});
 
 		Pedido guardado = pedidoRepositorioPuertoSalida.guardar(pedido);
 		return pedidoMapper.aDTO(guardado);

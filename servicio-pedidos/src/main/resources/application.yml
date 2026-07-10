@@ -4,3 +4,7 @@ server:
 spring:
   application:
     name: servicio-pedidos
+  http:
+    serviceclient:
+      catalogo:
+        base-url: "http://localhost:8080"
