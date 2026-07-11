@@ -22,17 +22,36 @@ Desde el capítulo 7, `servicio-pedidos` depende de una única llamada síncrona
 
 Este capítulo añade tres mecanismos de resiliencia sobre esa misma llamada, cada uno resolviendo un problema distinto:
 
-| Mecanismo | Problema que resuelve |
-|---|---|
-| **Reintento** (Retry) | Un fallo transitorio y puntual (un timeout suelto, un blip de red) se resuelve solo con volver a intentarlo |
-| Límite de concurrencia | Un catálogo lento no debe agotar el pool de hilos de `servicio-pedidos` acumulando llamadas en curso |
-| Circuit breaker | Un fallo sostenido no se arregla insistiendo — hay que dejar de llamar y fallar rápido durante un tiempo |
+| Mecanismo                  | Problema que resuelve |
+|----------------------------|---|
+| **Reintento** (Retry)      | Un fallo transitorio y puntual (un timeout suelto, un blip de red) se resuelve solo con volver a intentarlo |
+| **Límite de concurrencia** | Un catálogo lento no debe agotar el pool de hilos de `servicio-pedidos` acumulando llamadas en curso |
+| **Circuit breaker**        | Un fallo sostenido no se arregla insistiendo — hay que dejar de llamar y fallar rápido durante un tiempo |
 
 Los dos primeros son nativos de Spring Framework 7, activados con una única anotación de configuración (`@EnableResilientMethods`) y aplicados método a método con `@Retryable`/`@ConcurrencyLimit`. El circuit breaker no tiene equivalente nativo en Spring Framework 7 — se cubre en una sección posterior con Resilience4j.
 
 ---
 
 ## 2. Reintentos con `@Retryable`
+
+Antes de reintentar hace falta que el fallo se detecte en un tiempo acotado — sin eso, un `servicio-catalogo` que no está caído pero sí colgado (la conexión se establece pero nunca llega respuesta) podría dejar la llamada esperando indefinidamente, sin que `@Retryable` llegue siquiera a entrar en juego. `application.yml` fija explícitamente esos límites sobre el mismo grupo `catalogo` ya configurado en el capítulo 7:
+
+```yaml
+# servicio-pedidos/src/main/resources/application.yml
+spring:
+  http:
+    serviceclient:
+      catalogo:
+        base-url: "http://localhost:8080"
+        connect-timeout: 1s
+        read-timeout: 2s
+```
+
+> **¿Por qué dos timeouts distintos?**
+>
+> `connect-timeout` acota cuánto se espera a establecer la conexión TCP — si `servicio-catalogo` está realmente caído (nadie escucha en el puerto), esto falla casi al instante, así que 1 s ya es generoso. `read-timeout` acota cuánto se espera una vez la conexión ya está establecida pero la respuesta no llega — el caso de un proceso colgado, no caído. Sin este segundo timeout explícito, esa espera no tendría un límite fijado por la aplicación.
+>
+> Ambos se traducen en la misma `ResourceAccessException` que ya dispara `@Retryable` (sección siguiente) y cuenta como fallo para el circuit breaker (sección 4) — son la primera línea de defensa que hace que el resto de mecanismos de este capítulo lleguen a activarse en un tiempo razonable, en vez de quedarse esperando una respuesta que nunca llega.
 
 Spring Framework 7 incorpora un paquete propio de resiliencia (`org.springframework.resilience`), sin depender de Spring Retry ni de ninguna librería externa. Se activa declarando `@EnableResilientMethods` en una clase de configuración:
 
@@ -78,6 +97,10 @@ El atributo `includes` es la decisión más importante de este bloque: acota el 
 
 El resto de atributos configura un **backoff** exponencial con **jitter**: `delay = 200` fija la espera tras el primer fallo, `multiplier = 2` la dobla en cada reintento sucesivo (200 → 400 → 800 ms), `jitter = 50` añade una variación aleatoria de ±50 ms a cada espera (evita que reintentos de peticiones distintas se sincronicen exactamente), y `maxDelay = 1500` limita cuánto puede crecer esa espera. Con `maxRetries = 3`, el total de intentos es 1 inicial + 3 reintentos = 4 — si los cuatro fallan, la excepción se propaga tal cual a quien llamó (por ahora sin traducir a un `ProblemDetail` propio; eso llega con el circuit breaker, más adelante en este mismo capítulo).
 
+> **¿En qué unidad están `delay`, `jitter` y `maxDelay`?**
+>
+> En milisegundos. Los tres son un `long` plano, no un `Duration` — a diferencia de otras propiedades de configuración de Spring que sí aceptan sufijos como `500ms` o `2s`, aquí el número se interpreta directamente como milisegundos sin unidad explícita en el propio atributo.
+
 > **¿Qué es un backoff?**
 >
 > Es la estrategia de ir espaciando cada reintento sucesivo con una espera mayor que la anterior, en vez de reintentar inmediatamente o siempre con la misma espera fija. La variante "exponencial" —la que usa `@Retryable` aquí— dobla esa espera en cada intento (`multiplier = 2`: 200 → 400 → 800 ms): cuanto más lleva fallando la llamada, más se espacian los intentos, dando más margen a que el problema transitorio se resuelva solo antes del siguiente intento. `maxDelay` evita que ese crecimiento sea indefinido, poniendo un techo a la espera máxima entre intentos.
@@ -96,9 +119,11 @@ Se puede comprobar el efecto real deteniendo `servicio-catalogo` y creando un pe
 16:32:38.267  ERROR ... tras agotar los reintentos, se propaga ResourceAccessException
 ```
 
-> **¿Por qué `@Retryable` puede ir justo encima de `@Override`, en el mismo método que ya implementa el puerto de salida?**
+> **¿Por qué hay que invocar el método a través de la interfaz `CatalogoPuertoSalida` para que `@Retryable` funcione?**
 >
-> `@Retryable` funciona como el resto de anotaciones AOP de Spring (`@Transactional`, `@Async`): Spring envuelve el bean `CatalogoAdaptador` en un proxy que intercepta la llamada al método anotado antes de delegar en la implementación real. Como `CrearPedidoServicio` ya invoca `catalogoPuertoSalida.buscarProductoPorId(...)` a través de la interfaz `CatalogoPuertoSalida` — nunca directamente sobre `CatalogoAdaptador` —, el proxy se interpone de forma transparente sin ningún cambio adicional en el servicio de aplicación.
+> `@Retryable` funciona como el resto de anotaciones AOP de Spring (`@Transactional`, `@Async`): Spring envuelve el bean `CatalogoAdaptador` en un proxy que intercepta la llamada al método anotado antes de delegar en la implementación real. Ese proxy solo se interpone cuando la llamada llega desde fuera del bean — que es justo lo que ya hace `CrearPedidoServicio`, invocando `catalogoPuertoSalida.buscarProductoPorId(...)` a través de la interfaz.
+>
+> Si en cambio `buscarProductoPorId` se llamara desde dentro de la propia clase `CatalogoAdaptador` (`this.buscarProductoPorId(...)`, una auto-invocación), el proxy quedaría rodeado por completo: la llamada iría directa al método real sin pasar por la lógica de reintento. En este capítulo no ocurre, pero es la razón por la que llamar siempre a través del puerto de salida no es solo una cuestión de estilo hexagonal, sino un requisito técnico para que `@Retryable`/`@ConcurrencyLimit` lleguen a activarse.
 
 ---
 
@@ -303,7 +328,7 @@ Hay dos formas de comprobar todo lo anterior: una demostración manual (parando 
 
 ### 5.1. Demostración manual
 
-Con `servicio-catalogo` **parado** y `servicio-pedidos` arrancado (`./mvnw -pl servicio-pedidos spring-boot:run`), cada creación de pedido reintenta y acaba fallando:
+Con `servicio-catalogo` **parado** y `servicio-pedidos` arrancado con el log de resiliencia en `TRACE` para ver reintentos y transiciones del circuito en los logs (`./mvnw -pl servicio-pedidos spring-boot:run -Dspring-boot.run.arguments=--logging.level.org.springframework.resilience=TRACE`), cada creación de pedido reintenta y acaba fallando:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8081/api/pedidos \
@@ -405,7 +430,7 @@ void reintentaTrasFallosDeRedYFinalmentePropagaElFalloSiElCatalogoNoResponde() {
 |:---:|---|---|:---:|
 | ✏️ | [`pom.xml`](pom.xml) | POM padre del monorepo | Añadido `resilience4j-bom` a `dependencyManagement`, con la versión centralizada en la propiedad `resilience4j.version` |
 | ✏️ | [`servicio-pedidos/pom.xml`](servicio-pedidos/pom.xml) | Dependencias Maven de `servicio-pedidos` | Añadidas `spring-boot-starter-aspectj` (necesaria para el `@Aspect` de Resilience4j) y `resilience4j-spring-boot3` |
-| ✏️ | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración de `servicio-pedidos` | Añadida la instancia `resilience4j.circuitbreaker.instances.catalogo` (ventana, umbral de fallos, tiempo en abierto, excepciones ignoradas) |
+| ✏️ | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración de `servicio-pedidos` | Añadidos `connect-timeout`/`read-timeout` al grupo `catalogo` del capítulo 7, y la instancia `resilience4j.circuitbreaker.instances.catalogo` (ventana, umbral de fallos, tiempo en abierto, excepciones ignoradas) |
 
 ### Dominio
 
