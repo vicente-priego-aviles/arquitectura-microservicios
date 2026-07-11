@@ -75,7 +75,7 @@ Descartados por forzados para este dominio o sin desarrollo futuro: Spring for A
 
 ## Resiliencia
 - [x] Reintentos — `@Retryable` nativo de Spring Framework 7 (`@EnableResilientMethods`, capítulo 8) sobre la llamada de `servicio-pedidos` a `servicio-catalogo`; acotado a `ResourceAccessException` (fallo de red/timeout) para no reintentar el `404` de negocio (`ProductoInexistenteException`)
-- [x] Límite de concurrencia — `@ConcurrencyLimit` (capítulo 8), política `REJECT` (variante del patrón Bulkhead) para fallar rápido en vez de acumular hilos de `servicio-pedidos` esperando a un catálogo lento
+- [x] Límite de concurrencia — `@ConcurrencyLimit` (capítulo 8), política `REJECT` (variante del patrón Bulkhead, compartimento estanco) para fallar rápido en vez de acumular hilos de `servicio-pedidos` esperando a un catálogo lento
 - [x] Circuit breaker — Resilience4j (capítulo 8), no Spring Cloud Circuit Breaker (superseded); máquina de estados `CLOSED`/`OPEN`/`HALF_OPEN` verificada tanto manualmente como con test de integración (`MockRestServiceServer`)
 
 ## Procesamiento por lotes

@@ -129,7 +129,7 @@ Se puede comprobar el efecto real deteniendo `servicio-catalogo` y creando un pe
 
 ## 3. Límite de concurrencia con `@ConcurrencyLimit`
 
-El reintento de la sección anterior protege frente a un fallo puntual, pero no frente a otro escenario distinto: `servicio-catalogo` respondiendo *lento* en vez de fallando. Si llegan muchas creaciones de pedido a la vez y cada una se queda esperando esa respuesta lenta, las llamadas concurrentes hacia el catálogo se acumulan sin límite — y con ellas, los hilos de `servicio-pedidos` que las esperan. El **Límite de concurrencia** (Concurrency Limit) — una variante del patrón clásico Bulkhead (mamparo/compartimento estanco) — acota cuántas invocaciones de un método pueden estar en curso a la vez, para que un catálogo lento agote su propia capacidad, no la de quien lo llama.
+El reintento de la sección anterior protege frente a un fallo puntual, pero no frente a otro escenario distinto: `servicio-catalogo` respondiendo *lento* en vez de fallando. Si llegan muchas creaciones de pedido a la vez y cada una se queda esperando esa respuesta lenta, las llamadas concurrentes hacia el catálogo se acumulan sin límite — y con ellas, los hilos de `servicio-pedidos` que las esperan. El **Límite de concurrencia** (Concurrency Limit) — una variante del patrón clásico Bulkhead (compartimento estanco) — acota cuántas invocaciones de un método pueden estar en curso a la vez, para que un catálogo lento agote su propia capacidad, no la de quien lo llama.
 
 Se aplica con `@ConcurrencyLimit`, apilada junto a `@Retryable` sobre el mismo método:
 
@@ -275,15 +275,33 @@ resilience4j:
           - org.springframework.resilience.InvocationRejectedException
 ```
 
+Uno a uno:
+
+- `sliding-window-size`: **de cuántas llamadas se acuerda** Resilience4j. Imagínalo como una cola de capacidad fija de `4` casillas donde se apila el resultado (éxito/fallo) de cada llamada; al llegar una quinta llamada, la más antigua se descarta para dejar sitio. Esta cola es lo único que se usa para calcular la tasa de fallo — nunca mira más atrás.
+- `minimum-number-of-calls`: **a partir de cuántas llamadas** Resilience4j se atreve a calcular esa tasa de fallo. Con solo 1 llamada registrada, un único fallo daría una tasa de fallo del 100 %, pero un caso no es una muestra fiable de que `servicio-catalogo` esté realmente caído — así que hasta no reunir `4` llamadas en la cola, Resilience4j ni siquiera calcula el porcentaje, y el circuito no puede abrirse por mucho que fallen las primeras llamadas.
+- `failure-rate-threshold`: el umbral, en porcentaje, que dispara la apertura del circuito una vez cumplido `minimum-number-of-calls`. Aquí, `50` — en cuanto la mitad o más de las llamadas de la cola son fallos, `CLOSED` pasa a `OPEN`.
+- `wait-duration-in-open-state`: cuánto tiempo se queda el circuito en `OPEN`, fallando al instante sin ni siquiera intentar la llamada real, antes de darle a `servicio-catalogo` una oportunidad de demostrar que se ha recuperado. Aquí, `5s`.
+- `permitted-number-of-calls-in-half-open-state`: pasada esa espera, cuántas llamadas de prueba deja pasar el circuito en `HALF_OPEN` para decidir si vuelve a `CLOSED` o si vuelve a `OPEN`. Aquí, `1` — basta con que esa única llamada de prueba tenga éxito para cerrar el circuito otra vez, o con que falle para reabrirlo.
+- `ignore-exceptions`: qué excepciones no cuentan como "fallo" a efectos de la cola, aunque la llamada termine en error — se explica en detalle más abajo, es la decisión más importante de este bloque.
+
+`sliding-window-size` y `minimum-number-of-calls` son los dos que más se prestan a confusión, porque aquí comparten el mismo valor. Responden a preguntas distintas — uno es la memoria, el otro el arranque —, y con la configuración de este capítulo, `4` y `4`, el rastro sería así:
+
+```
+Llamada 1 (falla): cola = [F]          → 1 de 4 registradas, aún sin evaluar
+Llamada 2 (falla): cola = [F,F]        → 2 de 4 registradas, aún sin evaluar
+Llamada 3 (falla): cola = [F,F,F]      → 3 de 4 registradas, aún sin evaluar
+Llamada 4 (falla): cola = [F,F,F,F]    → 4 de 4 registradas → ya se evalúa: 4/4 = 100 % ≥ 50 % → CLOSED pasa a OPEN
+```
+
+Que ambos valgan lo mismo no es casualidad: significa que la primera evaluación posible coincide exactamente con el momento en que la cola se llena por primera vez, sin ningún hueco intermedio. Si `minimum-number-of-calls` fuera menor que `sliding-window-size` (p. ej. `2` con una ventana de `4`), Resilience4j empezaría a evaluar antes de que la cola llegara a llenarse — el circuito podría abrirse ya con solo 2 llamadas fallidas, sin esperar a las otras 2 casillas.
+
 `ignore-exceptions` es la decisión más importante de este bloque, con el mismo espíritu que el `includes` de `@Retryable` en la sección 2: un `404` legítimo (`ProductoInexistenteException` — el producto de verdad no existe) no es una señal de que el catálogo esté fallando, y un rechazo por saturación propia (`InvocationRejectedException` — nuestra propia sección 3 autolimitándose) tampoco lo es. Sin excluirlas, ambas contarían como "fallos" en la ventana de Resilience4j y podrían abrir el circuito por motivos que nada tienen que ver con la salud real de `servicio-catalogo`.
 
-### Un descubrimiento al combinar los tres: el circuit breaker envuelve cada intento, no la llamada completa
+### El circuit breaker envuelve cada intento, no la llamada completa
 
-Al escribir esta sección apareció un primer diseño que parecía razonable pero resultó estar mal: un segundo método de `fallback` para `ResourceAccessException` (además del de `CallNotPermittedException`), pensado para traducir también el fallo de "reintentos agotados con el circuito aún cerrado" a un `ProblemDetail` propio. Al probarlo, los reintentos de la sección 2 dejaron de funcionar — cada llamada fallaba en 1 ms, sin ningún backoff.
+Resilience4j envuelve cada **intento individual** de `@Retryable`, no la llamada externa completa — una precisión clave a la hora de diseñar el `fallback` de la sección anterior. Por eso solo existe un método de `fallback`, para `CallNotPermittedException` (circuito abierto): un segundo `fallback` para `ResourceAccessException`, pensado para traducir a un `ProblemDetail` propio el fallo de "reintentos agotados con el circuito aún cerrado", rompería los reintentos de la sección 2. En cuanto el primer intento fallara con `ResourceAccessException`, Resilience4j lo interceptaría y lo convertiría en `CatalogoNoDisponibleException` antes de que `@Retryable` pudiera verlo — y como esa excepción no está en su `includes`, `@Retryable` abortaría sin reintentar. El `fallback` del circuit breaker se "comería" la excepción que los reintentos necesitan ver.
 
-La causa: Resilience4j envuelve cada **intento individual** de `@Retryable`, no la llamada externa completa. Con ese segundo `fallback` registrado, en cuanto el primer intento fallaba con `ResourceAccessException`, Resilience4j lo interceptaba y lo convertía en `CatalogoNoDisponibleException` antes de que `@Retryable` pudiera verlo — y como esa excepción no está en su `includes`, `@Retryable` abortaba sin reintentar. El `fallback` de la circuitbreaker "se comía" la excepción que los reintentos necesitaban ver.
-
-La solución fue quitar ese segundo `fallback` y dejar que `ResourceAccessException` se propague sin traducir cuando el circuito está cerrado — así `@Retryable` la ve tal cual y reintenta con normalidad. Si los 4 intentos se agotan sin que el circuito llegue a abrirse, la excepción llega intacta hasta `ControladorErroresGlobal`, que la traduce directamente (sin pasar por Resilience4j):
+Por eso `ResourceAccessException` se deja propagar sin traducir mientras el circuito está cerrado: así `@Retryable` la ve tal cual y reintenta con normalidad. Si los 4 intentos se agotan sin que el circuito llegue a abrirse, la excepción llega intacta hasta `ControladorErroresGlobal`, que la traduce directamente (sin pasar por Resilience4j):
 
 ```java
 // servicio-pedidos/.../infraestructura/adaptador/entrada/rest/ControladorErroresGlobal.java
@@ -302,20 +320,30 @@ Esto también explica por qué el circuito puede abrirse **dentro de una sola pe
 Prueba real, encadenada:
 
 ```
-Petición 1 (circuito CLOSED): 4 intentos con backoff real (~1,55 s) → los 4 fallan → CLOSED pasa a OPEN
-                               → responde 503 "Catálogo no disponible" (vía ResourceAccessException)
-Petición 2 (circuito OPEN):   falla al instante (0,24 s) → CallNotPermittedException → fallback
-                               → responde 503 "Catálogo no disponible" (vía CatalogoNoDisponibleException, con productoId)
-[...servicio-catalogo se levanta...]
-Petición 3 (pasada la ventana de 5 s, circuito en HALF_OPEN): la llamada de prueba llega de verdad al catálogo,
-                               tiene éxito → HALF_OPEN pasa a CLOSED → responde 201 (pedido creado con normalidad)
+Petición 1 (18:49:05, circuito CLOSED):     4 intentos con backoff real (~1,57 s) → los 4 fallan → CLOSED pasa a OPEN
+                                             → responde 503 "Catálogo no disponible" (vía ResourceAccessException)
+Petición 2 (18:49:13, circuito OPEN):       pasados >5 s, el circuito ya está en HALF_OPEN al llegar la petición
+                                             → la llamada de prueba falla (catálogo aún caído) → HALF_OPEN vuelve a OPEN al instante (2 ms)
+                                             → responde 503 "Catálogo no disponible" (vía CatalogoNoDisponibleException, con productoId)
+[...servicio-catalogo se levanta, todavía sin el producto de prueba creado...]
+Petición 3 (18:50:07, circuito OPEN):       pasados otros >5 s, el circuito pasa a HALF_OPEN de nuevo
+                                             → la llamada de prueba llega de verdad al catálogo, pero el producto no existe (404)
+                                             → ProductoInexistenteException, ignorada por ignore-exceptions: ni cuenta como fallo
+                                               ni cierra el circuito — se queda en HALF_OPEN
+[...se crea un producto real en servicio-catalogo...]
+Petición 4 (18:59:08, circuito HALF_OPEN):  la llamada de prueba tiene éxito (24 ms) → HALF_OPEN pasa a CLOSED
+                                             → responde 201 (pedido creado con normalidad)
 ```
+
+La petición 3 deja una precisión interesante sobre `permitted-number-of-calls-in-half-open-state`: una excepción ignorada no cuenta como una de esas llamadas de prueba permitidas — ni a favor ni en contra —, así que el circuito se queda esperando en `HALF_OPEN` una llamada que sí se evalúe de verdad, por mucho tiempo que pase entre medias (aquí, más de 8 minutos).
 
 Y en los logs, la secuencia completa de transiciones de estado:
 
 ```
 CircuitBreaker 'catalogo' exceeded failure rate threshold. Current failure rate: 100.0
 CircuitBreaker 'catalogo' changed state from CLOSED to OPEN
+CircuitBreaker 'catalogo' changed state from OPEN to HALF_OPEN
+CircuitBreaker 'catalogo' changed state from HALF_OPEN to OPEN
 CircuitBreaker 'catalogo' changed state from OPEN to HALF_OPEN
 CircuitBreaker 'catalogo' changed state from HALF_OPEN to CLOSED
 ```
@@ -328,13 +356,27 @@ Hay dos formas de comprobar todo lo anterior: una demostración manual (parando 
 
 ### 5.1. Demostración manual
 
-Con `servicio-catalogo` **parado** y `servicio-pedidos` arrancado con el log de resiliencia en `TRACE` para ver reintentos y transiciones del circuito en los logs (`./mvnw -pl servicio-pedidos spring-boot:run -Dspring-boot.run.arguments=--logging.level.org.springframework.resilience=TRACE`), cada creación de pedido reintenta y acaba fallando:
+Con `servicio-catalogo` **parado**, arranca `servicio-pedidos` con el log de resiliencia en `TRACE` para ver reintentos y transiciones del circuito en los logs:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8081/api/pedidos \
+./mvnw -pl servicio-pedidos spring-boot:run -Dspring-boot.run.arguments=--logging.level.org.springframework.resilience=TRACE
+```
+
+> **¿Por qué estos `curl` no muestran el cuerpo de la respuesta?**
+>
+> A diferencia de los `curl` de capítulos anteriores, aquí lo único que interesa para observar la resiliencia es el código HTTP y cuánto ha tardado la petición — no el JSON devuelto. Tres flags nuevas lo consiguen:
+>
+> - `-s` (silent): no mostrar la barra de progreso de `curl`.
+> - `-o /dev/null`: descartar el cuerpo de la respuesta.
+> - `-w "%{http_code} (%{time_total}s)\n"` (write-out): en vez del cuerpo, imprimir esta plantilla con dos variables que `curl` rellena al terminar la petición — `%{http_code}` (el código HTTP) y `%{time_total}` (segundos totales, con decimales).
+
+Cada creación de pedido reintenta y acaba fallando:
+
+```bash
+curl -s -o /dev/null -w "%{http_code} (%{time_total}s)\n" -X POST http://localhost:8081/api/pedidos \
   -H "Content-Type: application/json" \
   -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"3fa85f64-5717-4562-b3fc-2c963f66afaa","cantidad":1}]}'
-# La primera petición tarda ~1,5 s (4 intentos con backoff) y devuelve 503 "Catálogo no disponible";
+# 503 (1.55s) — 4 intentos con backoff antes de responder "Catálogo no disponible";
 # con minimum-number-of-calls=4, esos mismos 4 intentos ya bastan para abrir el circuito.
 ```
 
@@ -347,25 +389,47 @@ curl -s -o /dev/null -w "%{http_code} (%{time_total}s)\n" -X POST http://localho
 # 503 (0.24s) — CallNotPermittedException -> catalogoNoDisponible, sin tocar la red
 ```
 
-Lanzando 3 peticiones concurrentes (`limit = 2` en `@ConcurrencyLimit`) se ve el rechazo por saturación, distinto del anterior:
+Lanzando 3 peticiones concurrentes (`limit = 2` en `@ConcurrencyLimit`) se ve el rechazo por saturación, distinto del anterior — pero aquí `%{http_code}` no sirve: los dos errores posibles (circuito abierto y saturación por concurrencia) responden el mismo `503`. La única forma de distinguirlos es el propio cuerpo de la respuesta (el campo `title` del `ProblemDetail`), así que esta vez sí lo conservamos — sin `-o /dev/null` — y lo extraemos con `jq`:
 
 ```bash
 for i in 1 2 3; do
-  curl -s -o /dev/null -w "req$i: %{http_code}\n" -X POST http://localhost:8081/api/pedidos \
+  curl -s -X POST http://localhost:8081/api/pedidos \
     -H "Content-Type: application/json" \
-    -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"3fa85f64-5717-4562-b3fc-2c963f66afaa","cantidad":1}]}' &
+    -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"3fa85f64-5717-4562-b3fc-2c963f66afaa","cantidad":1}]}' \
+    | jq -r --arg i "$i" '"req\($i): " + .title' &
 done
 wait
-# req1/req2: 503 "Catálogo no disponible" — req3: 503 "Catálogo saturado" (InvocationRejectedException)
+# Dos peticiones: "Catálogo no disponible" (circuito ya OPEN) — una: "Catálogo saturado" (InvocationRejectedException)
+# El orden de las tres líneas en la consola varía entre ejecuciones: se lanzan en paralelo con `&`.
 ```
 
-Y levantando `servicio-catalogo` (con al menos un producto creado) y esperando los `wait-duration-in-open-state: 5s` configurados, la siguiente petición ya se sirve con normalidad — la llamada de prueba en `HALF_OPEN` tiene éxito y cierra el circuito:
+> **¿Y esas líneas con corchetes tipo `[2] 61154 61155`?**
+>
+> Son del propio shell (aquí `zsh`), no de `curl` ni de `jq`: cada vez que se lanza un proceso en segundo plano con `&` se le asigna un número de trabajo y se muestran sus PID — dos en este caso, uno por cada lado de la tubería `curl | jq`. Al terminar, el shell imprime además una línea `[N]  + done  <comando>` por cada trabajo. Es ruido de control de trabajos intercalado con la salida real (`req1: ...`, `req2: ...`, `req3: ...`); se puede ignorar sin más, y no aparecería si el bucle se ejecutara desde un script en vez de pegarlo directamente en una sesión interactiva. Una ejecución real tiene este aspecto:
+>
+> ```
+> [2] 61154 61155
+> [3] 61156 61157
+> [4] 61158 61159
+> req3: Catálogo saturado
+> [4]  + done       curl -s -X POST http://localhost:8081/api/pedidos -H  -d  | jq -r --arg i "$i" '"req\($i): " + .title'
+> req2: Catálogo no disponible
+> [3]  + done       curl -s -X POST http://localhost:8081/api/pedidos -H  -d  | jq -r --arg i "$i" '"req\($i): " + .title'
+> req1: Catálogo no disponible
+> [2]  + done       curl -s -X POST http://localhost:8081/api/pedidos -H  -d  | jq -r --arg i "$i" '"req\($i): " + .title'
+> ```
+>
+> Las tres líneas que importan son `req3: Catálogo saturado`, `req2: Catálogo no disponible` y `req1: Catálogo no disponible` — el resto es control de trabajos del shell.
+
+Y levantando `servicio-catalogo` (con al menos un producto creado) y esperando los `wait-duration-in-open-state: 5s` configurados, la siguiente petición ya se sirve con normalidad — la llamada de prueba en `HALF_OPEN` tiene éxito y cierra el circuito. Al contrario que en los `curl` anteriores, aquí lo interesante ya no es el código HTTP ni el tiempo, sino el propio pedido creado — así que en vez de descartarlo lo extraemos con `jq`, igual que en la petición concurrente:
 
 ```bash
 curl -s -X POST http://localhost:8081/api/pedidos \
   -H "Content-Type: application/json" \
-  -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"<productoId-real>","cantidad":2}]}'
-# 201 Created — el pedido se crea con normalidad
+  -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"<productoId-real>","cantidad":2}]}' \
+  | jq -r '"pedido creado: " + .id + " (total: " + (.total | tostring) + ")"'
+# pedido creado: 3fa85f64-5717-4562-b3fc-2c963f66afab (total: 39.98)
+# Si jq consigue parsear un PedidoDTO válido, la petición ha respondido 201 — no hace falta comprobar el código aparte.
 ```
 
 ### 5.2. Test de integración con `MockRestServiceServer`
