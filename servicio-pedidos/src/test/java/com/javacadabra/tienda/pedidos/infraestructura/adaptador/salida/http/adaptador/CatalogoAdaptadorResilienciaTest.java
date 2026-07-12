@@ -112,7 +112,7 @@ class CatalogoAdaptadorResilienciaTest {
 		@Bean
 		RestClientHttpServiceGroupConfigurer interceptarGrupoCatalogo() {
 			return groups -> groups.filterByName("catalogo")
-					.forEachClient((group, builder) -> mockServer = MockRestServiceServer.bindTo(builder).build());
+					.forEachClient((group, builder) -> mockServer = MockRestServiceServer.createServer(builder));
 		}
 
 		MockRestServiceServer mockServer() {

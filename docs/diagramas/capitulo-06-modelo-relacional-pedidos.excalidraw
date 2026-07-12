@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://excalidraw.com",
+  "source": "https://excalidraw-jetbrains-plugin",
   "elements": [
     {
       "id": "title",
@@ -87,12 +87,14 @@
       "groupIds": [],
       "frameId": null,
       "index": "b1",
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 400003,
       "version": 1,
       "versionNonce": 500003,
       "isDeleted": false,
-      "boundElements": [{ "id": "pedidos-header-text", "type": "text" }],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -129,7 +131,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "pedidos-header",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -151,7 +153,9 @@
       "groupIds": [],
       "frameId": null,
       "index": "b2",
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 400005,
       "version": 1,
       "versionNonce": 500005,
@@ -214,12 +218,14 @@
       "groupIds": [],
       "frameId": null,
       "index": "b3",
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 400007,
       "version": 1,
       "versionNonce": 500007,
       "isDeleted": false,
-      "boundElements": [{ "id": "lineas-header-text", "type": "text" }],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -256,7 +262,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "lineas-header",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -278,7 +284,9 @@
       "groupIds": [],
       "frameId": null,
       "index": "b4",
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 400009,
       "version": 1,
       "versionNonce": 500009,
@@ -341,7 +349,9 @@
       "groupIds": [],
       "frameId": null,
       "index": "b5",
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 400011,
       "version": 1,
       "versionNonce": 500011,
@@ -350,9 +360,19 @@
       "updated": 1751100000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [-250, -25]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -250,
+          -25
+        ]
+      ],
       "startBinding": null,
-      "endBinding": null
+      "endBinding": null,
+      "lastCommittedPoint": null
     },
     {
       "id": "fk-label",
@@ -504,7 +524,9 @@
       "groupIds": [],
       "frameId": null,
       "index": "b9",
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 400016,
       "version": 1,
       "versionNonce": 500016,
@@ -550,8 +572,8 @@
     }
   ],
   "appState": {
-    "viewBackgroundColor": "#ffffff",
-    "gridSize": 20
+    "gridSize": null,
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }

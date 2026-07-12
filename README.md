@@ -436,6 +436,10 @@ curl -s -X POST http://localhost:8081/api/pedidos \
 
 La demostración manual depende de parar procesos y de la sincronización entre ventanas de tiempo — útil para verlo una vez, pero no para repetirlo en cada build. `CatalogoAdaptadorResilienciaTest` fija el mismo comportamiento con `MockRestServiceServer` (de `spring-test`, ya presente en el proyecto — sin dependencias nuevas), simulando fallos de red deterministas en vez de depender de que `servicio-catalogo` esté realmente caído.
 
+> **¿Qué es exactamente `MockRestServiceServer`?**
+>
+> Es una clase de `spring-test` que sustituye el transporte HTTP real de un `RestClient` (o `RestTemplate`) por uno falso, a un nivel lo bastante bajo (el `ClientHttpRequestFactory`) para que el código bajo test no note la diferencia: sigue llamando a `catalogoPuertoSalida.buscarProductoPorId(...)` exactamente igual, pero esa llamada nunca abre un socket real — la responde el propio `MockRestServiceServer` según lo que le hayamos configurado. Es el mismo principio que un `@Mock` de Mockito, pero operando al nivel de HTTP en vez de al nivel de objeto Java.
+
 El reto técnico es interceptar el `RestClient` real que usa `CatalogoHttpExchange` — el mismo que construye `@ImportHttpServices` a partir de `spring.http.serviceclient.catalogo.base-url`, no uno nuevo creado a mano. `RestClientHttpServiceGroupConfigurer` (Spring Framework 7) da acceso exactamente a ese `RestClient.Builder` por nombre de grupo, antes de que se construya el cliente final:
 
 ```java
@@ -448,7 +452,7 @@ static class ConfiguracionMockCatalogo {
 	@Bean
 	RestClientHttpServiceGroupConfigurer interceptarGrupoCatalogo() {
 		return groups -> groups.filterByName("catalogo")
-				.forEachClient((group, builder) -> mockServer = MockRestServiceServer.bindTo(builder).build());
+				.forEachClient((group, builder) -> mockServer = MockRestServiceServer.createServer(builder));
 	}
 
 	MockRestServiceServer mockServer() {
@@ -456,6 +460,30 @@ static class ConfiguracionMockCatalogo {
 	}
 }
 ```
+
+Desglosado línea a línea:
+
+- `@TestConfiguration static class ConfiguracionMockCatalogo`: una clase de configuración anidada y **solo para tests** — Spring Boot la detecta automáticamente por estar anidada dentro de la clase de test y añade sus beans al contexto, sin necesidad de declararla en ningún sitio más.
+- `interceptarGrupoCatalogo()`: un `@Bean` que devuelve una función (`RestClientHttpServiceGroupConfigurer` es una interfaz funcional). Spring Framework 7 invoca automáticamente **todo** bean de este tipo mientras construye los grupos de `@ImportHttpServices`, pasándole la lista completa de grupos — de ahí que haga falta `filterByName("catalogo")` para quedarnos solo con el grupo de este capítulo (`servicio-pedidos` podría tener más grupos en el futuro).
+- `forEachClient((group, builder) -> ...)`: por cada cliente de ese grupo, recibe su `RestClient.Builder` **antes de que se construya el cliente final** — es el único momento en el que se puede sustituir su transporte.
+- `MockRestServiceServer.createServer(builder)`: esta es la línea clave. Engancha el mock al `RestClient.Builder` real (sustituyendo su `ClientHttpRequestFactory` por uno falso) y **devuelve el propio `MockRestServiceServer`**, que guardamos en el campo `mockServer` para usarlo desde los tests.
+- `MockRestServiceServer mockServer()`: un getter normal, sin `@Bean` — no expone un segundo bean, solo permite leer el campo desde fuera. Por eso el test no autoinyecta un `MockRestServiceServer` directamente, sino la propia `ConfiguracionMockCatalogo`, y llama a `.mockServer()` para obtenerlo:
+
+```java
+@Autowired
+private ConfiguracionMockCatalogo configuracionMockCatalogo;
+
+private MockRestServiceServer mockServer;
+
+@BeforeEach
+void reiniciar() {
+	mockServer = configuracionMockCatalogo.mockServer();
+	mockServer.reset();
+	circuitBreakerRegistry.circuitBreaker("catalogo").reset();
+}
+```
+
+`mockServer.reset()` y `circuitBreakerRegistry...reset()` explican, de paso, la última frase de este apartado: como el contexto de Spring (con el `RestClient` ya interceptado, y el estado del circuit breaker) se reutiliza entre los métodos de test de la misma clase, hay que devolver ambos a su estado inicial antes de cada test — si no, un test heredaría el circuito ya `OPEN` de otro anterior.
 
 Con eso, cada test simula el fallo que necesita devolviendo (o lanzando) lo que corresponda desde el propio `ResponseCreator` — incluida una `IOException` real, que `RestClient` traduce a `ResourceAccessException` exactamente igual que ante un fallo de red de verdad:
 
@@ -475,7 +503,16 @@ void reintentaTrasFallosDeRedYFinalmentePropagaElFalloSiElCatalogoNoResponde() {
 }
 ```
 
-`ExpectedCount.times(4)` fija exactamente el número de intentos que la sección 2 prometía (1 inicial + 3 reintentos) — si `@Retryable` reintentara de más o de menos, `mockServer.verify()` fallaría. El resto de tests de la clase cubren, con la misma técnica: que tras esos 4 fallos el circuito pasa a `OPEN` y una segunda llamada falla al instante con `CatalogoNoDisponibleException` (sin llegar a pedir un quinto intento al mock — prueba de que no llama de más), y que una respuesta `200` normal se traduce igual que antes de este capítulo. Antes de cada test, `circuitBreakerRegistry.circuitBreaker("catalogo").reset()` devuelve el circuito a `CLOSED`, porque el contexto de Spring (y con él, el estado del circuito) se reutiliza entre los métodos de test de la misma clase.
+> **`expect`/`andRespond`/`verify`: preparar, actuar, comprobar**
+>
+> Este trío sigue el mismo patrón que cualquier test con un mock, solo que aplicado a peticiones HTTP en vez de a llamadas a objetos:
+>
+> - `mockServer.expect(...)` se ejecuta **antes** de llamar al código bajo test — no comprueba nada todavía, solo prepara una regla: "cuando llegue una petición que case con `requestTo(...)`, respóndele así". `ExpectedCount.times(4)` añade una condición extra a esa regla: tiene que casar exactamente 4 veces, ni más ni menos — es la forma en la que el test fija el número de intentos de `@Retryable` (1 inicial + 3 reintentos) que prometía la sección 2.
+> - `.andRespond(request -> { throw new IOException(...); })` es la respuesta asociada a esa regla: en vez de devolver un código HTTP, lanza la excepción directamente, para que `RestClient` la traduzca a `ResourceAccessException` tal cual haría ante un fallo de red real.
+> - Entre medias se llama al código real (`catalogoPuertoSalida.buscarProductoPorId(...)`) y se comprueba **su** resultado con `assertThatThrownBy(...)` — esa es la aserción sobre el comportamiento de `servicio-pedidos`.
+> - `mockServer.verify()` es la aserción distinta y final: comprueba que **todas** las reglas declaradas con `expect(...)` se cumplieron exactamente como se pidió. Si `@Retryable` hubiera reintentado 3 veces en vez de 4 (o 5), `assertThatThrownBy` seguiría pasando igual — la excepción final es la misma — pero `mockServer.verify()` fallaría, porque es quien de verdad cuenta las llamadas.
+
+El resto de tests de la clase cubren, con la misma técnica: que tras esos 4 fallos el circuito pasa a `OPEN` y una segunda llamada falla al instante con `CatalogoNoDisponibleException` (sin llegar a pedir un quinto intento al mock — prueba de que no llama de más), y que una respuesta `200` normal se traduce igual que antes de este capítulo.
 
 ## 6. Registro de archivos del capítulo
 
@@ -487,6 +524,8 @@ void reintentaTrasFallosDeRedYFinalmentePropagaElFalloSiElCatalogoNoResponde() {
 |:---:|---|---|:---:|
 | 🌱 | [`docs/diagramas/capitulo-08-circuit-breaker-estados.excalidraw`](docs/diagramas/capitulo-08-circuit-breaker-estados.excalidraw) | Diagrama Excalidraw (fuente editable) de la máquina de estados del circuit breaker | --- |
 | 🌱 | [`docs/images/capitulo-08/circuit-breaker-estados.png`](docs/images/capitulo-08/circuit-breaker-estados.png) | Render del diagrama anterior, embebido en la [sección 4](#4-circuit-breaker-con-resilience4j) | --- |
+
+Además, se desligó el texto de su contenedor (`containerId`) en los diagramas Excalidraw (y sus PNG) de los capítulos 1, 2, 6 y 7 — `capitulo-01-arquitectura-hexagonal`, `capitulo-01-secuencia-crear-producto`, `capitulo-02-modelo-grafo-categoria`, `capitulo-02-secuencia-recomendar-producto`, `capitulo-06-modelo-relacional-pedidos` y `capitulo-07-secuencia-crear-pedido` —, y se ajustó el tamaño de letra de un par de etiquetas para evitar que el texto se recortara. Corrige un fallo del plugin de Excalidraw para IntelliJ que dejaba ese texto invisible en el editor (sin cambios visuales en los PNG renderizados).
 
 ### Build y configuración
 

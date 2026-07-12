@@ -61,12 +61,7 @@
       "version": 1,
       "versionNonce": 500002,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-cliente-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751200000000,
       "link": null,
       "locked": false
@@ -103,7 +98,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-cliente",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -132,12 +127,7 @@
       "version": 1,
       "versionNonce": 500004,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-controller-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751200000000,
       "link": null,
       "locked": false
@@ -174,7 +164,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-controller",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -203,12 +193,7 @@
       "version": 1,
       "versionNonce": 500006,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-servicio-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751200000000,
       "link": null,
       "locked": false
@@ -245,7 +230,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-servicio",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -274,12 +259,7 @@
       "version": 1,
       "versionNonce": 500008,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-dominio-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751200000000,
       "link": null,
       "locked": false
@@ -316,7 +296,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-dominio",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -345,12 +325,7 @@
       "version": 1,
       "versionNonce": 500010,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-neo4j-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751200000000,
       "link": null,
       "locked": false
@@ -387,7 +362,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-neo4j",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },

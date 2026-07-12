@@ -41,6 +41,9 @@ public class CatalogoAdaptador implements CatalogoPuertoSalida {
 		}
 	}
 
+	// Resilience4j invoca este método por reflexión a partir del nombre en fallbackMethod;
+	// IntelliJ no lo sabe y marca el método y la excepción como no usados.
+	@SuppressWarnings("unused")
 	private ProductoCatalogoDTO catalogoNoDisponible(ProductoId productoId, CallNotPermittedException excepcion) {
 		throw new CatalogoNoDisponibleException(productoId.valor());
 	}

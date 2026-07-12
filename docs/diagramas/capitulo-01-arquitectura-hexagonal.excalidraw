@@ -61,12 +61,7 @@
       "version": 1,
       "versionNonce": 200002,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "cliente-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -104,7 +99,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "cliente",
+      "containerId": null,
       "originalText": "Cliente\n(HTTP)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -197,12 +192,7 @@
       "version": 1,
       "versionNonce": 200005,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "rect-rest-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -240,7 +230,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "rect-rest",
+      "containerId": null,
       "originalText": "Adaptador REST\n(ProductoController)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -333,12 +323,7 @@
       "version": 1,
       "versionNonce": 200008,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "rect-puerto-entrada-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -372,11 +357,11 @@
       "locked": false,
       "text": "Puerto de Entrada\n(CrearProductoPuertoEntrada)",
       "rawText": "Puerto de Entrada\n(CrearProductoPuertoEntrada)",
-      "fontSize": 15,
+      "fontSize": 13,
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "rect-puerto-entrada",
+      "containerId": null,
       "originalText": "Puerto de Entrada\n(CrearProductoPuertoEntrada)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -406,12 +391,7 @@
       "version": 1,
       "versionNonce": 200009,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "rect-dominio-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -449,7 +429,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "rect-dominio",
+      "containerId": null,
       "originalText": "DOMINIO\n\nProducto\n(agregado)\n\nProductoId · Precio\n(Value Objects)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -479,12 +459,7 @@
       "version": 1,
       "versionNonce": 200010,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "rect-puerto-salida-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -522,7 +497,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "rect-puerto-salida",
+      "containerId": null,
       "originalText": "Puerto de Salida\n(ProductoRepositorioPuertoSalida)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -552,12 +527,7 @@
       "version": 1,
       "versionNonce": 200011,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "rect-adaptador-neo4j-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -595,7 +565,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "rect-adaptador-neo4j",
+      "containerId": null,
       "originalText": "Adaptador Neo4j\n(ProductoRepositorioAdaptador)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -625,12 +595,7 @@
       "version": 1,
       "versionNonce": 200012,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "ellipse-neo4j-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -668,7 +633,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "ellipse-neo4j",
+      "containerId": null,
       "originalText": "Neo4j\n(grafo)",
       "lineHeight": 1.25,
       "autoResize": true

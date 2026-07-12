@@ -61,12 +61,7 @@
       "version": 1,
       "versionNonce": 300002,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "cat-ropa-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -103,7 +98,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "cat-ropa",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -132,12 +127,7 @@
       "version": 1,
       "versionNonce": 300004,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "cat-electronica-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -174,7 +164,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "cat-electronica",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -203,12 +193,7 @@
       "version": 1,
       "versionNonce": 300006,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "prod-camiseta-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -245,7 +230,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "prod-camiseta",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -274,12 +259,7 @@
       "version": 1,
       "versionNonce": 300008,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "prod-pantalon-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -316,7 +296,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "prod-pantalon",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -345,12 +325,7 @@
       "version": 1,
       "versionNonce": 300010,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "prod-telefono-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751100000000,
       "link": null,
       "locked": false
@@ -387,7 +362,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "prod-telefono",
+      "containerId": null,
       "lineHeight": 1.25,
       "autoResize": true
     },

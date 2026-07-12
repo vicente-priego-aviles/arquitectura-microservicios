@@ -61,12 +61,7 @@
       "version": 1,
       "versionNonce": 300002,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-cliente-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -104,7 +99,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-cliente",
+      "containerId": null,
       "originalText": "Cliente",
       "lineHeight": 1.25,
       "autoResize": true
@@ -175,12 +170,7 @@
       "version": 1,
       "versionNonce": 300004,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-controller-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -218,7 +208,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-controller",
+      "containerId": null,
       "originalText": "ProductoController\n(REST)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -289,12 +279,7 @@
       "version": 1,
       "versionNonce": 300006,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-servicio-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -332,7 +317,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-servicio",
+      "containerId": null,
       "originalText": "CrearProductoServicio\n(aplicación)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -403,12 +388,7 @@
       "version": 1,
       "versionNonce": 300008,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-adaptador-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -446,7 +426,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-adaptador",
+      "containerId": null,
       "originalText": "ProductoRepositorioAdaptador\n(implementa PuertoSalida)",
       "lineHeight": 1.25,
       "autoResize": true
@@ -517,12 +497,7 @@
       "version": 1,
       "versionNonce": 300010,
       "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "obj-neo4j-text",
-          "type": "text"
-        }
-      ],
+      "boundElements": [],
       "updated": 1751000000000,
       "link": null,
       "locked": false
@@ -560,7 +535,7 @@
       "fontFamily": 1,
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "obj-neo4j",
+      "containerId": null,
       "originalText": "Neo4j",
       "lineHeight": 1.25,
       "autoResize": true
