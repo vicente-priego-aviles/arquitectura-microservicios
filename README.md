@@ -33,8 +33,10 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 5 | [`capitulo-05-problemdetail-rfc7807`](../../tree/capitulo-05-problemdetail-rfc7807) | ProblemDetail (RFC 7807/9457) | servicio-catalogo | `ProblemDetail`, RFC 7807/9457 |
 | 6 | [`capitulo-06-servicio-pedidos`](../../tree/capitulo-06-servicio-pedidos) | Segundo microservicio: Pedidos (JPA/PostgreSQL) | servicio-pedidos | JPA, PostgreSQL, Flyway |
 | 7 | [`capitulo-07-http-service-client`](../../tree/capitulo-07-http-service-client) | Comunicación entre microservicios: Spring HTTP Service Client | servicio-pedidos | `@HttpExchange`, Capa Anticorrupción |
+| 8 | [`capitulo-08-resiliencia`](../../tree/capitulo-08-resiliencia) | Resiliencia de la llamada síncrona | servicio-pedidos | `@Retryable`, `@ConcurrencyLimit`, Circuit Breaker (Resilience4j) |
+| 9 | [`capitulo-09-test-capa-web`](../../tree/capitulo-09-test-capa-web) | Test de la capa web | servicio-catalogo, servicio-pedidos | `MockMvcTester`, `RestTestClient` |
 
-Consulta el [`CHECKLIST.md`](../../blob/capitulo-07-http-service-client/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-09-test-capa-web/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
@@ -48,6 +50,7 @@ Versiones fijadas explícitamente como propiedad en el `pom.xml` raíz — cada 
 | MapStruct | 1.6.3 | Mapeo dominio↔DTO, dominio↔entidad |
 | Testcontainers | 1.21.4 | Tests de integración con infraestructura real |
 | [springdoc-openapi](../../tree/capitulo-03-openapi-swagger) | 3.0.3 | OpenAPI 3 / Swagger UI |
+| [Resilience4j](../../tree/capitulo-08-resiliencia) | 2.3.0 | Circuit breaker (`servicio-pedidos`) |
 
 Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-parent` (suben solas al actualizar la versión de Spring Boot):
 
