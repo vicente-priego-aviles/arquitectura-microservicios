@@ -1,5 +1,6 @@
 package com.javacadabra.tienda.catalogo.infraestructura.adaptador.entrada.rest;
 
+import com.javacadabra.tienda.catalogo.aplicacion.dto.entrada.RecomendarProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.dto.salida.ProductoDTO;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarProductoPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarProductosPorCategoriaPuertoEntrada;
@@ -24,7 +25,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,7 +131,7 @@ class ProductoControllerTest {
 						""".formatted(recomendadoId)))
 				.hasStatus(HttpStatus.NO_CONTENT);
 
-		verify(recomendarProductoPuertoEntrada).recomendar(eq(id), any());
+		verify(recomendarProductoPuertoEntrada).recomendar(id, new RecomendarProductoDTO(recomendadoId));
 	}
 
 	@Test
