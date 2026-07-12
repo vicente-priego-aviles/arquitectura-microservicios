@@ -230,6 +230,12 @@ class PedidoControllerRestTestClientIntegrationTest {
 
 `expectHeader().contentType(...)` es la aserción que no tiene equivalente real en los otros tres modos: solo aquí la cabecera `Content-Type` la ha escrito de verdad el servidor Servlet al serializar la respuesta, no un objeto `MockHttpServletResponse` simulado.
 
+> **¿`mockServer.verify()` comprueba también el JSON de la respuesta?**
+>
+> No. `mockServer.expect(requestTo(...))` fija qué petición saliente se espera, y `mockServer.verify()` al final del test solo confirma que esa petición se hizo de verdad — nada más. El JSON que se pasa a `withSuccess(...)` es un valor inventado por el propio test, no una respuesta real de `servicio-catalogo`: `MockRestServiceServer` intercepta la llamada saliente antes de que toque la red y devuelve exactamente lo que se le indica, sin verificar su contenido contra nada.
+>
+> Por eso "extremo a extremo" en el nombre de este test se refiere solo a la petición **entrante** — el servidor HTTP real de `servicio-pedidos`, que es justo lo que aporta `bindToServer()` frente a los otros tres modos. La dependencia **saliente** sigue mockeada, igual que en el capítulo 8, y por el mismo motivo: levantar un `servicio-catalogo` real solo para este test sería mucho más caro y menos determinista sin aportar nada a lo que el test quiere demostrar.
+
 ---
 
 ## 5. Cómo probarlo
