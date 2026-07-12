@@ -9,6 +9,7 @@ import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.BuscarProductos
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.CrearProductoPuertoEntrada;
 import com.javacadabra.tienda.catalogo.aplicacion.puerto.entrada.RecomendarProductoPuertoEntrada;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.PrimaryAdapter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@PrimaryAdapter
 @RestController
 @RequestMapping("/api/productos")
 @RequiredArgsConstructor

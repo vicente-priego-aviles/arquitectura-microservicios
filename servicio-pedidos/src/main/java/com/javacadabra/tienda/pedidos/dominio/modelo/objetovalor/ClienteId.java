@@ -1,7 +1,10 @@
 package com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor;
 
+import org.jmolecules.ddd.annotation.ValueObject;
+
 import java.util.UUID;
 
+@ValueObject
 public record ClienteId(String valor) {
 
 	public ClienteId {

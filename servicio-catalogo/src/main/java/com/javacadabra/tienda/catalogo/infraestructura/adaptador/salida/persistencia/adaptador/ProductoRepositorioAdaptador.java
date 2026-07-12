@@ -9,11 +9,13 @@ import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persiste
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.repositorio.CategoriaRepositorioNeo4j;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.repositorio.ProductoRepositorioNeo4j;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.SecondaryAdapter;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
 
+@SecondaryAdapter
 @Component
 @RequiredArgsConstructor
 public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSalida {

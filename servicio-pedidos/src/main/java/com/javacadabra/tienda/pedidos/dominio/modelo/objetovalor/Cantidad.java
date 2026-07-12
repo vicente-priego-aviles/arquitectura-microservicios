@@ -1,5 +1,8 @@
 package com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor;
 
+import org.jmolecules.ddd.annotation.ValueObject;
+
+@ValueObject
 public record Cantidad(int valor) {
 
 	public Cantidad {

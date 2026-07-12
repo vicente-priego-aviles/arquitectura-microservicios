@@ -4,6 +4,7 @@ import com.javacadabra.tienda.pedidos.aplicacion.dto.entrada.CrearPedidoDTO;
 import com.javacadabra.tienda.pedidos.aplicacion.dto.salida.PedidoDTO;
 import com.javacadabra.tienda.pedidos.aplicacion.puerto.entrada.CrearPedidoPuertoEntrada;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.PrimaryAdapter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@PrimaryAdapter
 @RestController
 @RequestMapping("/api/pedidos")
 @RequiredArgsConstructor

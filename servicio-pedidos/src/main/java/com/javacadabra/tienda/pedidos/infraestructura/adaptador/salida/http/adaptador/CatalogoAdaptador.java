@@ -10,12 +10,14 @@ import com.javacadabra.tienda.pedidos.infraestructura.adaptador.salida.http.clie
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.SecondaryAdapter;
 import org.springframework.resilience.annotation.ConcurrencyLimit;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
+@SecondaryAdapter
 @Component
 @RequiredArgsConstructor
 public class CatalogoAdaptador implements CatalogoPuertoSalida {

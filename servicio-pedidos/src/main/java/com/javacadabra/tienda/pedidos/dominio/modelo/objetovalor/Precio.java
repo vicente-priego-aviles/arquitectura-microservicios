@@ -1,7 +1,10 @@
 package com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor;
 
+import org.jmolecules.ddd.annotation.ValueObject;
+
 import java.math.BigDecimal;
 
+@ValueObject
 public record Precio(BigDecimal valor) {
 
 	public Precio {

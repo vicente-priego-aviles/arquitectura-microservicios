@@ -4,12 +4,16 @@ import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.jmolecules.ddd.annotation.AggregateRoot;
+import org.jmolecules.ddd.annotation.Identity;
 
+@AggregateRoot
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Categoria {
 
+	@Identity
 	@EqualsAndHashCode.Include
 	private final CategoriaId id;
 	private String nombre;

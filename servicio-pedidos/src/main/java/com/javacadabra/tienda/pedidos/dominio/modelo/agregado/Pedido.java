@@ -9,6 +9,8 @@ import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.jmolecules.ddd.annotation.AggregateRoot;
+import org.jmolecules.ddd.annotation.Identity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,11 +18,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+@AggregateRoot
 @Getter
 @Accessors(fluent = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Pedido {
 
+	@Identity
 	@EqualsAndHashCode.Include
 	private final PedidoId id;
 	private final ClienteId clienteId;

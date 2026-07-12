@@ -6,10 +6,12 @@ import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.CategoriaId;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.mapper.CategoriaEntidadMapper;
 import com.javacadabra.tienda.catalogo.infraestructura.adaptador.salida.persistencia.repositorio.CategoriaRepositorioNeo4j;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.SecondaryAdapter;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+@SecondaryAdapter
 @Component
 @RequiredArgsConstructor
 public class CategoriaRepositorioAdaptador implements CategoriaRepositorioPuertoSalida {

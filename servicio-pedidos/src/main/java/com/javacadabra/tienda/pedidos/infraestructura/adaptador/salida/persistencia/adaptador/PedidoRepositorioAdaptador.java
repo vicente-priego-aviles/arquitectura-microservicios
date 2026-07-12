@@ -5,8 +5,10 @@ import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
 import com.javacadabra.tienda.pedidos.infraestructura.adaptador.salida.persistencia.mapper.PedidoEntidadMapper;
 import com.javacadabra.tienda.pedidos.infraestructura.adaptador.salida.persistencia.repositorio.PedidoRepositorioJpa;
 import lombok.RequiredArgsConstructor;
+import org.jmolecules.architecture.hexagonal.SecondaryAdapter;
 import org.springframework.stereotype.Component;
 
+@SecondaryAdapter
 @Component
 @RequiredArgsConstructor
 public class PedidoRepositorioAdaptador implements PedidoRepositorioPuertoSalida {
