@@ -37,5 +37,7 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | — | Circuit Breaker | Máquina de estados (`CLOSED`/`OPEN`/`HALF_OPEN`) que deja de invocar un servicio que falla de forma sostenida, para no insistir contra algo que ya se sabe que no responde; sin traducción española de uso consolidado en la literatura de resiliencia |
 | Método de reserva | Fallback Method | Método alternativo invocado cuando la llamada protegida falla o el circuito está abierto, en vez de propagar la excepción original |
 | — | Jitter | Variación aleatoria añadida a cada espera de un backoff exponencial, para que reintentos que fallaron a la vez no se sincronicen también al reintentar; sin traducción española de uso consolidado |
+| — | Test Slice | Carga solo la porción del contexto de Spring relacionada con una capa concreta (p. ej. `@WebMvcTest` carga solo la infraestructura MVC), sustituyendo el resto de colaboradores por dobles de prueba en vez de arrancar el contexto completo; sin traducción española de uso consolidado |
+| Configuración autónoma | Standalone Setup | Instancia el controlador a mano, sin contexto de Spring ni escaneo de componentes (`RestTestClient.bindToController(...)`); cualquier `@ControllerAdvice` debe registrarse explícitamente porque no hay escaneo que lo descubra |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.
