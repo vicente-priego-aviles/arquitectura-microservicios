@@ -33,7 +33,7 @@ De paso, con dos microservicios ya repitiendo el mismo patrón de anotaciones Sw
 
 ## 2. `@WebMvcTest` y `MockMvcTester`: el Test Slice web
 
-`@WebMvcTest(ProductoController.class)` carga solo el **Test Slice** relacionado con ese controlador — un subconjunto del contexto de Spring limitado a la infraestructura MVC (`DispatcherServlet`, conversores de mensaje, `@RestControllerAdvice` como `ControladorErroresGlobal`), sin arrancar Neo4j ni escanear servicios o repositorios. Los cinco puertos de entrada que usa `ProductoController` se sustituyen por dobles de Mockito con `@MockitoBean`, y Spring Boot autoconfigura un `MockMvcTester` listo para inyectar porque AssertJ ya está en el classpath de test:
+`@WebMvcTest(ProductoController.class)` carga solo el **Test Slice** relacionado con ese controlador — un subconjunto del contexto de Spring limitado a la infraestructura MVC (`DispatcherServlet`, conversores de mensaje, `@RestControllerAdvice` como `ControladorErroresGlobal`), sin arrancar Neo4j ni escanear servicios o repositorios. Por debajo, esa infraestructura MVC se expone como un `MockMvc` — la clase de Spring Test que dispara peticiones a través del `DispatcherServlet` real, pero sobre objetos `HttpServletRequest`/`HttpServletResponse` simulados en memoria, sin abrir un puerto ni un servidor HTTP de verdad. Los cinco puertos de entrada que usa `ProductoController` se sustituyen por dobles de Mockito con `@MockitoBean`, y Spring Boot autoconfigura sobre ese `MockMvc` un `MockMvcTester` listo para inyectar porque AssertJ ya está en el classpath de test:
 
 ```java
 // servicio-catalogo/src/test/java/.../infraestructura/adaptador/entrada/rest/ProductoControllerTest.java
@@ -87,7 +87,7 @@ void buscarUnProductoInexistenteDevuelve404ConProblemDetailConMockMvcTester() {
 
 ## 3. `RestTestClient` sobre el mismo Test Slice: cuerpo tipado
 
-`@AutoConfigureRestTestClient` en la misma clase `@WebMvcTest` inyecta también un `RestTestClient` que reutiliza el `MockMvc` ya configurado — mismo endpoint, misma petición, pero con una API pensada para consumir la respuesta como el objeto de salida real en vez de navegar el JSON:
+`@AutoConfigureRestTestClient` en la misma clase `@WebMvcTest` inyecta también un `RestTestClient`, construido directamente sobre ese mismo `MockMvc` de la [sección 2](#2-webmvctest-y-mockmvctester-el-test-slice-web) — no sobre `MockMvcTester`: son dos fachadas independientes sobre la misma infraestructura, no una envolviendo a la otra (internamente equivale a llamar a `RestTestClient.bindTo(mockMvc)` con la instancia que ya configura el Test Slice). Mismo endpoint, misma petición, pero con una API pensada para consumir la respuesta como el objeto de salida real en vez de navegar el JSON:
 
 ```java
 @Test
