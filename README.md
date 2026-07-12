@@ -110,7 +110,7 @@ void buscarUnProductoExistenteDevuelveSuCuerpoTipadoConRestTestClient() {
 
 ## 4. Las cuatro formas de vincular `RestTestClient`
 
-`RestTestClient` no está atado a `@WebMvcTest`: se puede vincular a un controlador de cuatro formas distintas, con la misma API de ahí en adelante en los cuatro casos, y de menor a mayor aislamiento roto:
+`RestTestClient` no está atado a `@WebMvcTest`: se puede vincular a un controlador de cuatro formas distintas, con la misma API de ahí en adelante en los cuatro casos, ordenadas de la más aislada a la más realista:
 
 | Forma de vincularse | Contexto de Spring | Servidor HTTP real | Uso típico |
 |---|---|---|---|
@@ -121,10 +121,16 @@ void buscarUnProductoExistenteDevuelveSuCuerpoTipadoConRestTestClient() {
 
 ![Espectro de las cuatro formas de vincular RestTestClient, desde bindToController (sin contexto de Spring) hasta bindToServer (servidor HTTP real), con una barra de progreso por caja indicando cuánta infraestructura real interviene y qué clase de test de este capítulo demuestra cada una](docs/images/capitulo-09/resttestclient-formas-vinculacion.png)
 
-*Las cuatro formas de vincular `RestTestClient`, de menor a mayor aislamiento roto — tres de las cuatro se demuestran en código en este capítulo; `bindToApplicationContext` queda solo documentado en la tabla anterior.*
+*Las cuatro formas de vincular `RestTestClient`, de la más aislada a la más realista — tres de las cuatro se demuestran en código en este capítulo; `bindToApplicationContext` queda solo documentado en la tabla anterior.*
 <br>
 
 Vale la pena mostrar al menos los dos extremos para entender la progresión completa, no solo el Test Slice web ya visto.
+
+> **¿Por qué `bindToApplicationContext` se queda solo en la tabla?**
+>
+> Porque frente a las otras tres formas no requiere ni siquiera una anotación distinta, solo un valor de atributo distinto. Comparando el arranque de cada caso: `bindToController` no usa ninguna anotación de Spring (Mockito puro); `bindTo(mockMvc)` usa `@WebMvcTest` + `@AutoConfigureRestTestClient`; `bindToServer` usa `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `@AutoConfigureRestTestClient`.
+>
+> Para `bindToApplicationContext` el único cambio sería el valor de `webEnvironment`: en vez de `RANDOM_PORT`, sería `MOCK` — que además es el valor por defecto de `@SpringBootTest` si se omite el atributo entero. Spring Boot documenta que en modo `MOCK` se carga un `ApplicationContext` web completo sin arrancar un servidor embebido, y que `RestTestClient` sigue disponible ahí igual que con `RANDOM_PORT`. Mismo `@SpringBootTest`, misma `@AutoConfigureRestTestClient`, mismas dependencias reales (Neo4j vía Testcontainers) — no aparecería ninguna anotación nueva en el archivo, solo un atributo distinto. Escribir ese cuarto test no enseñaría ninguna técnica nueva frente a los tres ya vistos.
 
 ### 4.1 El extremo más rápido: `bindToController`
 
