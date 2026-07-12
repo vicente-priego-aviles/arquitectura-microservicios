@@ -18,7 +18,7 @@ Noveno capítulo del tutorial "De cero a pro en arquitectura de microservicios c
 
 ## 1. Introducción
 
-Ningún controlador REST del proyecto tiene test propio desde el capítulo 1: `ProductoController`/`CategoriaController` de `servicio-catalogo` y `PedidoController` de `servicio-pedidos` solo se han verificado a mano, vía Swagger UI o `curl`. Funciona para explorar mientras se escribe el código, pero no deja nada que vuelva a ejecutarse solo — ni protege de una regresión al tocar un `@ExceptionHandler`, ni documenta ejecutable el contrato HTTP real de cada endpoint (código de estado, cabeceras, forma del cuerpo).
+Ningún controlador REST del proyecto tiene test propio desde el capítulo 1: `ProductoController`/`CategoriaController` de `servicio-catalogo` y `PedidoController` de `servicio-pedidos` solo se han verificado a mano, vía Swagger UI o `curl`. Funciona para explorar mientras se escribe el código, pero no deja nada que vuelva a ejecutarse solo — ni protege de una regresión al tocar un `@ExceptionHandler`, ni documenta de forma ejecutable el contrato HTTP real de cada endpoint (código de estado, cabeceras, forma del cuerpo).
 
 Spring Boot 4 ofrece dos APIs para cerrar ese hueco, ambas construidas sobre la misma infraestructura de `MockMvc` por debajo — de hecho, una de las dos formas de construir `RestTestClient` envuelve directamente una instancia de `MockMvc` ya configurada — pero con propósitos distintos:
 
@@ -27,7 +27,7 @@ Spring Boot 4 ofrece dos APIs para cerrar ese hueco, ambas construidas sobre la 
 | `MockMvcTester` | Inspección del lado del servidor: qué *handler* se invocó, qué excepción se lanzó; única con soporte de subida de múltiples ficheros | Verificar cómo reacciona el servidor por dentro, no solo la respuesta que ve el cliente |
 | `RestTestClient` | Una sola API que sirve igual para tests mockeados que para un servidor real; deserialización tipada del cuerpo de la respuesta en vez de navegar la respuesta *JSON path* a *JSON path* | Verificar el contrato HTTP tal y como lo vería un cliente real, con el cuerpo ya convertido al DTO de salida |
 
-Este capítulo demuestra ambas sobre los mismos endpoints de `ProductoController` para que se puedan comparar directamente, y luego dedica una sección aparte a las cuatro formas de vincular `RestTestClient` a un servidor — desde la más aislada (ni contexto de Spring) hasta la más realista (servidor HTTP real de punta a punta).
+Este capítulo demuestra ambas sobre los mismos endpoints de `ProductoController` para que se puedan comparar directamente, y luego dedica una sección aparte a las cuatro formas de vincular `RestTestClient` a un servidor — desde la más aislada (sin contexto de Spring) hasta la más realista (servidor HTTP real de punta a punta).
 
 De paso, con dos microservicios ya repitiendo el mismo patrón de anotaciones Swagger en sus controllers, aprovechamos para extraerlas a una interfaz propia que el controller se limita a implementar — una limpieza pequeña, pero que vale la pena hacer ahora que el patrón se repite por segunda vez.
 
