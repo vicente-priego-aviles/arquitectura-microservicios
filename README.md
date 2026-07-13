@@ -35,8 +35,9 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 7 | [`capitulo-07-http-service-client`](../../tree/capitulo-07-http-service-client) | Comunicación entre microservicios: Spring HTTP Service Client | servicio-pedidos | `@HttpExchange`, Capa Anticorrupción |
 | 8 | [`capitulo-08-resiliencia`](../../tree/capitulo-08-resiliencia) | Resiliencia de la llamada síncrona | servicio-pedidos | `@Retryable`, `@ConcurrencyLimit`, Circuit Breaker (Resilience4j) |
 | 9 | [`capitulo-09-test-capa-web`](../../tree/capitulo-09-test-capa-web) | Test de la capa web | servicio-catalogo, servicio-pedidos | `MockMvcTester`, `RestTestClient` |
+| 10 | [`capitulo-10-archunit-jmolecules`](../../tree/capitulo-10-archunit-jmolecules) | Disciplina de tests y arquitectura: ArchUnit, jMolecules, Instancio y DataFaker | servicio-catalogo, servicio-pedidos | ArchUnit, jMolecules, Instancio, DataFaker |
 
-Consulta el [`CHECKLIST.md`](../../blob/capitulo-09-test-capa-web/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-10-archunit-jmolecules/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
@@ -51,6 +52,10 @@ Versiones fijadas explícitamente como propiedad en el `pom.xml` raíz — cada 
 | Testcontainers | 1.21.4 | Tests de integración con infraestructura real |
 | [springdoc-openapi](../../tree/capitulo-03-openapi-swagger) | 3.0.3 | OpenAPI 3 / Swagger UI |
 | [Resilience4j](../../tree/capitulo-08-resiliencia) | 2.3.0 | Circuit breaker (`servicio-pedidos`) |
+| [ArchUnit](../../tree/capitulo-10-archunit-jmolecules) | 1.4.1 | Reglas de arquitectura como test ejecutable |
+| [jMolecules](../../tree/capitulo-10-archunit-jmolecules) | 1.10.0 | Anotaciones DDD / Arquitectura Hexagonal (metadato puro, verificado por `jmolecules-archunit`) |
+| [Instancio](../../tree/capitulo-10-archunit-jmolecules) | 5.4.1 | Generación de datos de prueba (objetos sin invariantes) |
+| [DataFaker](../../tree/capitulo-10-archunit-jmolecules) | 2.4.3 | Generación de datos de prueba realistas (Objetos de Valor validados) |
 
 Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-parent` (suben solas al actualizar la versión de Spring Boot):
 
