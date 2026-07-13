@@ -43,7 +43,7 @@
 		<resilience4j.version>2.3.0</resilience4j.version>
 		<archunit.version>1.4.1</archunit.version>
 		<jmolecules-bom.version>2023.3.4</jmolecules-bom.version>
-		<jmolecules-integrations.version>0.28.0</jmolecules-integrations.version>
+		<jmolecules-integrations.version>0.33.0</jmolecules-integrations.version>
 		<instancio.version>5.4.1</instancio.version>
 		<datafaker.version>2.4.3</datafaker.version>
 	</properties>
@@ -91,11 +91,6 @@
 			<dependency>
 				<groupId>com.tngtech.archunit</groupId>
 				<artifactId>archunit-junit5</artifactId>
-				<version>${archunit.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>com.tngtech.archunit</groupId>
-				<artifactId>archunit</artifactId>
 				<version>${archunit.version}</version>
 			</dependency>
 			<dependency>

@@ -149,7 +149,7 @@ La misma anotación se repite en `Categoria` (catálogo) y en `Pedido` (pedidos)
 > }
 > ```
 >
-> Fue un error de modelado del capítulo 6 que ninguna revisión manual había detectado — y que la propia disciplina de este capítulo saca a la luz.
+> No es que nadie se hubiera hecho la pregunta antes: el capítulo 6 ya se preguntaba por qué `LineaPedidoEntidad` sí lleva un `id` técnico y `LineaPedido` del dominio no, y respondía correctamente que "el dominio no necesita un id para `LineaPedido` porque nunca se referencia una línea suelta desde fuera de su `Pedido` — no hay ningún caso de uso que diga 'la línea X'". El razonamiento ya estaba ahí; lo que faltó fue seguirlo hasta su conclusión DDD (sin identidad y sin ese caso de uso, es un Objeto de Valor, no una Entidad). Es la propia disciplina de este capítulo la que fuerza a cerrar ese razonamiento.
 
 Por el mismo motivo tampoco se usan `@Service` ni `@Factory` de jMolecules sobre `aplicacion.servicio.*Servicio`: esas anotaciones describen un Servicio de Dominio (lógica sin dueño natural en ningún Agregado) y una Fábrica dedicada respectivamente, y las clases de este proyecto en `aplicacion.servicio` son casos de uso que orquestan Agregados y **Puertos de salida** (Outbound Port) — un rol más cercano a lo que jMolecules llama capa de aplicación que a un Servicio de Dominio. Forzar esas anotaciones sería el mismo error que forzar una identidad en `LineaPedido`: maquillar el código para que encaje con la herramienta, en vez de dejar que la herramienta revele si el modelo encaja o no.
 
@@ -196,7 +196,7 @@ Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPed
 
 ## 5. jMolecules: arquitectura hexagonal como vocabulario verificable
 
-Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y Puertos de salida, y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM. Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, sin `<scope>`: compile por defecto):
+Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal, con cuatro anotaciones nuevas en `org.jmolecules.architecture.hexagonal`. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM. Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, sin `<scope>`: compile por defecto):
 
 ```xml
 <dependency>
@@ -205,7 +205,21 @@ Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@
 </dependency>
 ```
 
-El encaje con la convención de paquetes de este monorepo es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
+`@PrimaryPort` marca un **Puerto de entrada** (Inbound Port): lo que el núcleo de la aplicación expone hacia fuera para que algo lo accione. El encaje con la convención de paquetes de este monorepo es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
+
+```java
+@PrimaryPort
+public interface CrearProductoPuertoEntrada {
+
+	ProductoDTO crear(CrearProductoDTO dto);
+}
+```
+
+> **Aviso: la anotación `@Repository` que aparece a continuación es, hoy, puro metadato sin ninguna regla que la verifique**
+>
+> Ni las cuatro reglas de `JMoleculesDddRules.all()` (sección 4) ni `JMoleculesArchitectureRules.ensureHexagonal()` leen `@Repository` en ningún punto de su código fuente (comprobado contra `jmolecules-archunit:0.33.0`). La distinción que se explica más abajo entre un Repository y un `@SecondaryPort` genérico es real en términos de DDD, pero ningún test de este capítulo la comprueba automáticamente — es documentación legible por otro desarrollador o por una herramienta futura, no una regla activa todavía.
+
+`@SecondaryPort` marca un Puerto de salida: lo que el núcleo necesita del exterior. Cuando ese Puerto de salida da acceso a los Agregados propios como una colección (añadir, quitar, buscar), jMolecules tiene una anotación más específica: `@Repository`, el propio patrón Repository de Evans — su Javadoc lo resume como "simula una colección de Agregados a la que se pueden añadir y quitar instancias":
 
 ```java
 @Repository
@@ -214,6 +228,39 @@ public interface ProductoRepositorioPuertoSalida {
 	// ...
 }
 ```
+
+> **¿Por qué `@Repository` en `ProductoRepositorioPuertoSalida` y no en `CatalogoPuertoSalida`, si los dos son `@SecondaryPort`?**
+>
+> Comparando los dos interfaces completos:
+>
+> ```java
+> @Repository
+> @SecondaryPort
+> public interface ProductoRepositorioPuertoSalida {
+> 	Producto guardar(Producto producto);
+> 	Optional<Producto> buscarPorId(ProductoId id);
+> 	List<Producto> buscarPorCategoria(CategoriaId categoriaId);
+> 	List<Producto> buscarRecomendados(ProductoId productoId);
+> 	void agregarRecomendacion(ProductoId productoId, ProductoId recomendadoId);
+> }
+> ```
+>
+> ```java
+> @SecondaryPort
+> public interface CatalogoPuertoSalida {
+> 	ProductoCatalogoDTO buscarProductoPorId(ProductoId productoId);
+> }
+> ```
+>
+> Tres diferencias, todas apuntando en la misma dirección:
+>
+> 1. **De quién es el Agregado.** `Producto` es un Agregado que `servicio-catalogo` posee: lo crea, lo valida, es responsable de su consistencia. `servicio-pedidos` no tiene ningún `Producto` propio — solo conoce su `ProductoId` (una referencia) y recibe de vuelta un `ProductoCatalogoDTO`, una copia traducida de lo que dice `servicio-catalogo` en ese instante. El patrón Repository, tal y como lo define Evans, es específicamente para Agregados propios: no tiene sentido "simular una colección" de algo que no es tuyo.
+> 2. **Colección frente a una consulta puntual.** `ProductoRepositorioPuertoSalida` tiene `guardar` (añade a la colección), varios `buscarPor...` (la consultan) y `agregarRecomendacion` (modifica una relación dentro de ella) — gestiona el ciclo de vida completo de `Producto` como una colección, que es justo lo que el Javadoc de `@Repository` describe ("simula una colección de Agregados a la que se pueden añadir y quitar instancias"). `CatalogoPuertoSalida` tiene un único método de solo lectura: no añade, no quita, no gestiona nada — es una consulta puntual a un sistema externo, no una colección.
+> 3. **Qué tipo devuelve.** El Repository devuelve/recibe el propio Agregado de dominio (`Producto`). `CatalogoPuertoSalida` devuelve un DTO (`ProductoCatalogoDTO`), deliberadamente distinto del `Producto` real de `servicio-catalogo` — es la Capa Anticorrupción del capítulo 7 traduciendo la respuesta de un Contexto Delimitado ajeno, no acceso a persistencia propia.
+>
+> `@Repository`, entonces, no es "cualquier Puerto de salida que trae datos de fuera": es específicamente el que da acceso de tipo colección a los Agregados que este microservicio posee y persiste. Aparte de esto, una aclaración de nombres: `@Repository` aquí es la anotación DDD de jMolecules, no el estereotipo de Spring — los adaptadores de persistencia de este proyecto llevan `@Component` desde el capítulo 1, así que no hay colisión en ningún archivo real.
+
+`@PrimaryAdapter` implementa el lado que llama a un Puerto de entrada — en este proyecto, un controlador REST:
 
 ```java
 @PrimaryAdapter
@@ -225,7 +272,16 @@ public class ProductoController implements ProductoApiDoc {
 }
 ```
 
-(`@Repository` aquí es la anotación DDD de jMolecules, no el estereotipo de Spring — este proyecto nunca ha anotado sus adaptadores de persistencia con el `@Repository` de Spring, usa `@Component` desde el capítulo 1, así que no hay colisión de nombres en ningún archivo real.)
+`@SecondaryAdapter` implementa un Puerto de salida — aquí, el adaptador de persistencia Neo4j:
+
+```java
+@SecondaryAdapter
+@Component
+@RequiredArgsConstructor
+public class ProductoRepositorioAdaptador implements ProductoRepositorioPuertoSalida {
+	// ...
+}
+```
 
 Con esas cuatro anotaciones repartidas por los puertos y adaptadores de cada microservicio, `JMoleculesArchitectureRules.ensureHexagonal()` verifica automáticamente la regla que hasta ahora nadie comprobaba: un adaptador primario (`ProductoController`) solo puede depender de puertos primarios, nunca de un adaptador secundario directamente; un adaptador secundario (`ProductoRepositorioAdaptador`) solo se accede desde dentro de la propia capa de adaptadores, nunca desde fuera:
 
@@ -234,20 +290,9 @@ Con esas cuatro anotaciones repartidas por los puertos y adaptadores de cada mic
 static final ArchRule reglaHexagonal = JMoleculesArchitectureRules.ensureHexagonal();
 ```
 
-> **Una versión "más reciente" que en realidad es un release residual de 2022**
+> **Una versión "más reciente" que en realidad es una release residual de 2022**
 >
-> Al añadir la dependencia `org.jmolecules.integrations:jmolecules-archunit`, Maven Central listaba `1.6.0` como la versión `<latest>`/`<release>` — más alta, numéricamente, que cualquier `0.x`. Resultó ser un release publicado el 21 de junio de 2022, un día antes de `0.11.0`: un salto de numeración aislado que quedó huérfano en la serie `0.x` en vez de continuarla, y que Maven Central sigue anunciando como "la última" porque solo compara números de versión, no fechas de publicación. Compilada contra ArchUnit 0.23.1 (2022), esa `1.6.0` falla con `NoSuchMethodError`/`AbstractMethodError` en tiempo de ejecución contra el ArchUnit 1.4.1 moderno que usa el resto de este capítulo — la API pública de ArchUnit cambió de forma incompatible entre su serie `0.x` y `1.x`. La versión realmente activa y mantenida es `0.28.0` (junio 2025), que sí declara ArchUnit `1.4.1` como dependencia. Verificado con `curl` contra `maven-metadata.xml` y comparando fechas de publicación reales en `search.maven.org`, no dando por buena la etiqueta `<latest>` sin más.
-
-> **Un conflicto de versión adicional: `archunit` en dos números distintos a la vez**
->
-> Incluso con `jmolecules-archunit:0.28.0`, `mvn dependency:tree -Dverbose` mostraba `com.tngtech.archunit:archunit:0.23.1` ganando sobre `1.4.1`: Maven resuelve conflictos de versión por cercanía en el árbol de dependencias, y `jmolecules-archunit` declara `archunit:0.23.1` como dependencia directa (un salto menos de profundidad que el `archunit:1.4.1` que llega transitivamente a través de `archunit-junit5`). La solución es forzar la versión en el `dependencyManagement` del `pom.xml` raíz — eso gana siempre, sin importar la profundidad del árbol:
-> ```xml
-> <dependency>
->     <groupId>com.tngtech.archunit</groupId>
->     <artifactId>archunit</artifactId>
->     <version>${archunit.version}</version>
-> </dependency>
-> ```
+> Maven Central listaba `1.6.0` como `<latest>`/`<release>` de `jmolecules-archunit` — más alta, numéricamente, que cualquier `0.x`. Resultó ser una release publicada el 21 de junio de 2022, huérfana desde entonces: compilada contra un ArchUnit antiguo (`0.23.1`), incompatible con el `1.4.1` moderno que usa este capítulo (`NoSuchMethodError`/`AbstractMethodError` en tiempo de ejecución). La serie realmente mantenida siguió por `0.x`; la versión usada aquí es `0.33.0` (diciembre 2025), que sí declara ArchUnit `1.4.1`. Verificado por fecha de publicación real, no por la etiqueta `<latest>`.
 
 ## 6. Instancio: rellenar objetos sin invariantes
 
@@ -344,7 +389,7 @@ Producto producto = Producto.crear(
 
 |     | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
-| ✏️ | [`pom.xml`](pom.xml) | Parent multi-módulo | Añade `archunit-junit5`, `jmolecules-bom`, `jmolecules-archunit`, `instancio-junit` y `datafaker` al `dependencyManagement`, con la versión de `archunit` forzada explícitamente para evitar el conflicto de mediación descrito en la sección 5 |
+| ✏️ | [`pom.xml`](pom.xml) | Parent multi-módulo | Añade `archunit-junit5`, `jmolecules-bom`, `jmolecules-archunit`, `instancio-junit` y `datafaker` al `dependencyManagement` |
 | ✏️ | [`servicio-catalogo/pom.xml`](servicio-catalogo/pom.xml) | Build de `servicio-catalogo` | Añade `jmolecules-ddd`/`jmolecules-hexagonal-architecture` (compile) y `archunit-junit5`/`jmolecules-archunit`/`instancio-junit`/`datafaker` (test) |
 | ✏️ | [`servicio-pedidos/pom.xml`](servicio-pedidos/pom.xml) | Build de `servicio-pedidos` | Mismas dependencias que `servicio-catalogo/pom.xml` |
 
