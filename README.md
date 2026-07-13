@@ -19,7 +19,7 @@ Décimo capítulo del tutorial "De cero a pro en arquitectura de microservicios 
 
 ## 1. Motivación: automatizar una disciplina que hasta ahora era manual
 
-Desde el capítulo 1, cada microservicio de este tutorial sigue la misma convención de capas (**dominio**, **aplicación**, **infraestructura**) documentada en `CLAUDE.md`, y el mismo patrón para los **Agregados** (Aggregate): constructor privado, factorías estáticas `crear`/`reconstruir`, invariantes validadas en el propio constructor. Hasta ahora esa disciplina se ha mantenido por revisión manual — el `README.md` de cada capítulo la explica, pero nada impide que un commit futuro rompa una de esas reglas sin que nadie lo note hasta una revisión de código.
+Desde el capítulo 1, cada microservicio de este tutorial sigue la misma convención de capas (**dominio**, **aplicación**, **infraestructura**), y el mismo patrón para los **Agregados** (Aggregate): constructor privado, factorías estáticas `crear`/`reconstruir`, invariantes validadas en el propio constructor. Hasta ahora esa disciplina se ha mantenido por revisión manual — el `README.md` de cada capítulo la explica, pero nada impide que un commit futuro rompa una de esas reglas sin que nadie lo note hasta una revisión de código.
 
 Con `servicio-catalogo` y `servicio-pedidos` ya construidos, ese riesgo deja de ser hipotético: cualquier regla de capas o de modelado que se documenta en un solo sitio y se aplica de memoria en el otro es una regla que, tarde o temprano, diverge entre los dos. Este capítulo cierra ese hueco con dos herramientas complementarias:
 
@@ -60,11 +60,11 @@ class ArquitecturaHexagonalTest {
 
 ## 3. jMolecules: vocabulario DDD explícito en el dominio
 
-[jMolecules](https://github.com/xmolecules/jmolecules) es una librería de anotaciones e interfaces — sin ningún comportamiento en tiempo de ejecución — que expresa conceptos DDD directamente en el código: `@AggregateRoot`, `@Entity`, `@ValueObject`, `@Identity`, `@Repository`. No sustituye nada de lo que ya existía (el constructor privado, las factorías `crear`/`reconstruir`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` de la convención de Lombok en agregados de `CLAUDE.md`): añade una capa de metadatos sobre ese mismo código, legible tanto por otro desarrollador como por herramientas como ArchUnit.
+[jMolecules](https://github.com/xmolecules/jmolecules) es una librería de anotaciones e interfaces — sin ningún comportamiento en tiempo de ejecución — que expresa conceptos DDD directamente en el código: `@AggregateRoot`, `@Entity`, `@ValueObject`, `@Identity`, `@Repository`. No sustituye nada de lo que ya existía (el constructor privado, las factorías `crear`/`reconstruir`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` de la convención de Lombok en agregados): añade una capa de metadatos sobre ese mismo código, legible tanto por otro desarrollador como por herramientas como ArchUnit.
 
 > **¿No es esto justo el tipo de dependencia de framework que `dominio` tiene prohibida?**
 >
-> No en el sentido que `CLAUDE.md` prohíbe. La regla de esa convención es que el dominio no puede depender de nada que le imponga comportamiento en tiempo de ejecución — un framework de persistencia, un contenedor de inyección de dependencias, un servidor web. jMolecules no aporta ninguna de esas cosas: sus anotaciones son puro metadato (`RetentionPolicy.RUNTIME` solo para que herramientas como ArchUnit puedan leerlas por reflexión), sin una sola línea de lógica que se ejecute contra el dominio. Es la misma distinción que ya aplica a Lombok en la convención de agregados: generar código en tiempo de compilación no es lo mismo que acoplar el dominio a un framework.
+> No en el sentido en el que se prohíbe. La regla es que el dominio no puede depender de nada que le imponga comportamiento en tiempo de ejecución — un framework de persistencia, un contenedor de inyección de dependencias, un servidor web. jMolecules no aporta ninguna de esas cosas: sus anotaciones son puro metadato (`RetentionPolicy.RUNTIME` solo para que herramientas como ArchUnit puedan leerlas por reflexión), sin una sola línea de lógica que se ejecute contra el dominio. Es la misma distinción que ya aplica a Lombok en la convención de agregados: generar código en tiempo de compilación no es lo mismo que acoplar el dominio a un framework.
 
 Aplicado a `Producto` (`servicio-catalogo`):
 
@@ -95,7 +95,7 @@ La misma anotación se repite en `Categoria` (catálogo) y en `Pedido` (pedidos)
 
 > **¿Por qué `LineaPedido` no lleva `@Entity`?**
 >
-> `LineaPedido` es, en el lenguaje del propio `CHECKLIST.md`, una "entidad interna al agregado ... sin repositorio ni ciclo de vida propios" — pero nunca tuvo un campo de identidad: no hay ningún `LineaPedidoId`, y dos líneas se distinguen únicamente por su posición dentro de la lista de `Pedido`. jMolecules exige que toda clase anotada `@Entity` declare un miembro anotado `@Identity` (lo verifica la regla `annotatedEntitiesAndAggregatesNeedToHaveAnIdentifier()` de la [sección 4](#4-jmolecules--archunit-reglas-ddd-automáticas)) — y forzar una identidad que el modelo nunca necesitó solo para poder poner la anotación habría sido maquillar el código para complacer a la herramienta, no documentarlo con más precisión. Se deja `LineaPedido` sin anotación de jMolecules: sigue siendo una entidad interna en el sentido de `CLAUDE.md`, simplemente no en el sentido más estricto que jMolecules exige para su propia anotación `@Entity`.
+> `LineaPedido` es una entidad interna al agregado — sin repositorio ni ciclo de vida propios — pero nunca tuvo un campo de identidad: no hay ningún `LineaPedidoId`, y dos líneas se distinguen únicamente por su posición dentro de la lista de `Pedido`. jMolecules exige que toda clase anotada `@Entity` declare un miembro anotado `@Identity` (lo verifica la regla `annotatedEntitiesAndAggregatesNeedToHaveAnIdentifier()` de la [sección 4](#4-jmolecules--archunit-reglas-ddd-automáticas)) — y forzar una identidad que el modelo nunca necesitó solo para poder poner la anotación habría sido maquillar el código para complacer a la herramienta, no documentarlo con más precisión. Se deja `LineaPedido` sin anotación de jMolecules: sigue siendo una entidad interna en ese sentido más amplio, simplemente no en el sentido más estricto que jMolecules exige para su propia anotación `@Entity`.
 
 Por el mismo motivo tampoco se usan `@Service` ni `@Factory` de jMolecules sobre `aplicacion.servicio.*Servicio`: esas anotaciones describen un Servicio de Dominio (lógica sin dueño natural en ningún Agregado) y una Fábrica dedicada respectivamente, y las clases de este proyecto en `aplicacion.servicio` son casos de uso que orquestan Agregados y puertos de salida — un rol más cercano a lo que jMolecules llama capa de aplicación que a un Servicio de Dominio. Forzar la anotación habría sido igual de artificial que inventarle una identidad a `LineaPedido`.
 
@@ -117,7 +117,7 @@ Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPed
 
 ## 5. jMolecules: arquitectura hexagonal como vocabulario verificable
 
-Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. El encaje con la convención de paquetes de `CLAUDE.md` es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
+Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. El encaje con la convención de paquetes de este monorepo es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
 
 ```java
 @Repository
@@ -163,7 +163,7 @@ static final ArchRule reglaHexagonal = JMoleculesArchitectureRules.ensureHexagon
 
 ## 6. Instancio: rellenar objetos sin invariantes
 
-`ProductoEntidad` (la entidad de persistencia Neo4j de `servicio-catalogo`, capítulo 1) no tenía, hasta este capítulo, ningún test dedicado a su mapper — `ProductoEntidadMapperTest` es nuevo. Es exactamente el tipo de objeto que [Instancio](https://www.instancio.org/) está pensado para rellenar: un `@NoArgsConstructor`/`@AllArgsConstructor` de Lombok sin ninguna validación propia, a diferencia del Agregado `Producto` o de `ProductoId`/`Precio`, que sí tienen invariantes en el constructor y por eso quedan fuera de este uso (ver el candidato ya anotado en `CHECKLIST.md`).
+`ProductoEntidad` (la entidad de persistencia Neo4j de `servicio-catalogo`, capítulo 1) no tenía, hasta este capítulo, ningún test dedicado a su mapper — `ProductoEntidadMapperTest` es nuevo. Es exactamente el tipo de objeto que [Instancio](https://www.instancio.org/) está pensado para rellenar: un `@NoArgsConstructor`/`@AllArgsConstructor` de Lombok sin ninguna validación propia, a diferencia del Agregado `Producto` o de `ProductoId`/`Precio`, que sí tienen invariantes en el constructor y por eso quedan fuera de este uso.
 
 ```java
 ProductoEntidad entidad = Instancio.of(ProductoEntidad.class)
