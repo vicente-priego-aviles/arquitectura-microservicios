@@ -1,8 +1,8 @@
 package com.javacadabra.tienda.pedidos.dominio.modelo.agregado;
 
-import com.javacadabra.tienda.pedidos.dominio.modelo.entidad.LineaPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.LineaPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.PedidoId;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
@@ -48,7 +48,7 @@ public class Pedido {
 	}
 
 	public void agregarLinea(ProductoId productoId, Cantidad cantidad, Precio precioUnitario) {
-		lineas.add(LineaPedido.crear(productoId, cantidad, precioUnitario));
+		lineas.add(LineaPedido.de(productoId, cantidad, precioUnitario));
 	}
 
 	public List<LineaPedido> lineas() {

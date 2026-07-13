@@ -1,9 +1,9 @@
 package com.javacadabra.tienda.pedidos.infraestructura.adaptador.salida.persistencia.mapper;
 
 import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
-import com.javacadabra.tienda.pedidos.dominio.modelo.entidad.LineaPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.LineaPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.PedidoId;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
@@ -42,6 +42,6 @@ public interface PedidoEntidadMapper {
 		if (entidad == null) {
 			return null;
 		}
-		return LineaPedido.crear(ProductoId.de(entidad.getProductoId()), Cantidad.de(entidad.getCantidad()), Precio.de(entidad.getPrecioUnitario()));
+		return LineaPedido.de(ProductoId.de(entidad.getProductoId()), Cantidad.de(entidad.getCantidad()), Precio.de(entidad.getPrecioUnitario()));
 	}
 }

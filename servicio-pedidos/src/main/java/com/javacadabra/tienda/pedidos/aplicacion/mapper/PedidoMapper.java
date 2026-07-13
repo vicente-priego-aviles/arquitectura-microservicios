@@ -3,7 +3,7 @@ package com.javacadabra.tienda.pedidos.aplicacion.mapper;
 import com.javacadabra.tienda.pedidos.aplicacion.dto.salida.LineaPedidoDTO;
 import com.javacadabra.tienda.pedidos.aplicacion.dto.salida.PedidoDTO;
 import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
-import com.javacadabra.tienda.pedidos.dominio.modelo.entidad.LineaPedido;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.LineaPedido;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
 

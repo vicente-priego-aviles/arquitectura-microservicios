@@ -65,7 +65,7 @@ Se añade con la versión gestionada en el `pom.xml` raíz (mismo patrón que `r
 </dependency>
 ```
 
-Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, con scope `test`):
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `test`):
 
 ```xml
 <dependency>
@@ -125,7 +125,7 @@ public class Producto {
 }
 ```
 
-Y a los Objetos de Valor (Value Object), que ya eran `record` desde el capítulo 1 — la anotación es el único cambio:
+Y a los **Objetos de Valor** (Value Object), que ya eran `record` desde el capítulo 1 — la anotación es el único cambio:
 
 ```java
 @ValueObject
@@ -138,9 +138,20 @@ La misma anotación se repite en `Categoria` (catálogo) y en `Pedido` (pedidos)
 
 > **¿Por qué `LineaPedido` no lleva `@Entity`?**
 >
-> `LineaPedido` es una entidad interna al agregado — sin repositorio ni ciclo de vida propios — pero nunca tuvo un campo de identidad: no hay ningún `LineaPedidoId`, y dos líneas se distinguen únicamente por su posición dentro de la lista de `Pedido`. jMolecules exige que toda clase anotada `@Entity` declare un miembro anotado `@Identity` (lo verifica la regla `annotatedEntitiesAndAggregatesNeedToHaveAnIdentifier()` de la [sección 4](#4-jmolecules--archunit-reglas-ddd-automáticas)) — y forzar una identidad que el modelo nunca necesitó solo para poder poner la anotación habría sido maquillar el código para complacer a la herramienta, no documentarlo con más precisión. Se deja `LineaPedido` sin anotación de jMolecules: sigue siendo una entidad interna en ese sentido más amplio, simplemente no en el sentido más estricto que jMolecules exige para su propia anotación `@Entity`.
+> Ese fue el primer intento: `LineaPedido` vivía desde el capítulo 6 en `dominio.modelo.entidad`, la carpeta de entidades internas al agregado. Pero jMolecules exige que toda clase anotada `@Entity` declare un miembro anotado `@Identity` (lo verifica la regla `annotatedEntitiesAndAggregatesNeedToHaveAnIdentifier()` de la [sección 4](#4-jmolecules--archunit-reglas-ddd-automáticas)) — y `LineaPedido` nunca tuvo un campo de identidad: no hay ningún `LineaPedidoId`, y dos líneas solo se distinguían por su posición dentro de la lista de `Pedido`.
+>
+> Forzar una identidad que el modelo nunca necesitó solo para poder poner la anotación habría sido maquillar el código para complacer a la herramienta, no documentarlo con más precisión — así que la pregunta correcta pasó a ser otra: si `LineaPedido` es inmutable (campos `final`, sin setters), no tiene identidad, y `Pedido.agregarLinea(...)` solo añade líneas nuevas sin buscar ni sustituir nunca una existente por referencia, ¿no es eso exactamente lo que define un Objeto de Valor y no una Entidad? La respuesta es que sí: `LineaPedido` se reclasifica en este mismo capítulo — se mueve a `dominio.modelo.objetovalor`, se convierte en `record` como el resto de los Objetos de Valor del proyecto, y se anota `@ValueObject`:
+>
+> ```java
+> @ValueObject
+> public record LineaPedido(ProductoId productoId, Cantidad cantidad, Precio precioUnitario) {
+> 	// ...
+> }
+> ```
+>
+> Fue un error de modelado del capítulo 6 que ninguna revisión manual había detectado — y que la propia disciplina de este capítulo saca a la luz.
 
-Por el mismo motivo tampoco se usan `@Service` ni `@Factory` de jMolecules sobre `aplicacion.servicio.*Servicio`: esas anotaciones describen un Servicio de Dominio (lógica sin dueño natural en ningún Agregado) y una Fábrica dedicada respectivamente, y las clases de este proyecto en `aplicacion.servicio` son casos de uso que orquestan Agregados y puertos de salida — un rol más cercano a lo que jMolecules llama capa de aplicación que a un Servicio de Dominio. Forzar la anotación habría sido igual de artificial que inventarle una identidad a `LineaPedido`.
+Por el mismo motivo tampoco se usan `@Service` ni `@Factory` de jMolecules sobre `aplicacion.servicio.*Servicio`: esas anotaciones describen un Servicio de Dominio (lógica sin dueño natural en ningún Agregado) y una Fábrica dedicada respectivamente, y las clases de este proyecto en `aplicacion.servicio` son casos de uso que orquestan Agregados y **Puertos de salida** (Outbound Port) — un rol más cercano a lo que jMolecules llama capa de aplicación que a un Servicio de Dominio. Forzar esas anotaciones sería el mismo error que forzar una identidad en `LineaPedido`: maquillar el código para que encaje con la herramienta, en vez de dejar que la herramienta revele si el modelo encaja o no.
 
 ## 4. jMolecules + ArchUnit: reglas DDD automáticas
 
@@ -178,17 +189,16 @@ static final ArchRule reglasDdd = JMoleculesDddRules.all();
 
 1. Toda `@Entity` declarada dentro de un `@AggregateRoot` pertenece a ese mismo Agregado (no se referencia una entidad de otro Agregado por error).
 2. Un `@AggregateRoot` nunca referencia directamente a otro `@AggregateRoot` — solo a través de su identificador o de una `Association<T, ID>` propia de jMolecules. `Producto.categoriaId` cumple esto de forma natural: es un `CategoriaId`, no una referencia directa a `Categoria`.
-3. Toda clase anotada `@AggregateRoot` o `@Entity` declara un miembro `@Identity` (la regla que `LineaPedido` no cumpliría si se hubiera anotado como `@Entity`, ver la nota de la [sección 3](#3-jmolecules-vocabulario-ddd-explícito-en-el-dominio)).
-4. Un `@ValueObject` no referencia a nada identificable (otro Agregado o Entidad) — solo tiene sentido si es inmutable y se compara por valor.
+3. Toda clase anotada `@AggregateRoot` o `@Entity` declara un miembro `@Identity` (la regla que `LineaPedido` no habría cumplido de haberse forzado como `@Entity` — ver la nota de la [sección 3](#3-jmolecules-vocabulario-ddd-explícito-en-el-dominio), donde ese intento fallido llevó a reclasificarlo como Objeto de Valor).
+4. Un `@ValueObject` no referencia a nada identificable (otro Agregado o Entidad) — solo tiene sentido si es inmutable y se compara por valor. `LineaPedido`, ya reclasificado, la cumple de forma natural: solo referencia `ProductoId`, nunca un `Producto` completo.
 
-Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPedido` sin cambiar ni una línea del modelo — son exactamente las invariantes que el diseño ya respetaba desde que se escribió, solo que hasta ahora nadie las comprobaba en cada build.
+Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPedido` — para todos salvo `LineaPedido` son exactamente las invariantes que el diseño ya respetaba desde que se escribió, sin cambiar ni una línea del modelo; `LineaPedido` es la excepción que motivó el cambio de la sección anterior.
 
 ## 5. jMolecules: arquitectura hexagonal como vocabulario verificable
 
-Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM:
+Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y Puertos de salida, y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM. Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, sin `<scope>`: compile por defecto):
 
 ```xml
-<!-- servicio-catalogo/pom.xml y servicio-pedidos/pom.xml (idéntica en ambos, sin <scope>: compile por defecto) -->
 <dependency>
 	<groupId>org.jmolecules</groupId>
 	<artifactId>jmolecules-hexagonal-architecture</artifactId>
@@ -276,7 +286,7 @@ Producto producto = mapper.aDominio(entidad);
 
 > **Si `ProductoEntidad` no tiene invariantes, ¿por qué hacen falta tres `generate(...)`?**
 >
-> Porque "sin invariantes propias" no es lo mismo que "sus valores nunca se validan en ningún sitio". `ProductoEntidadMapper.aDominio(entidad)` pasa `entidad.getId()` al constructor de `ProductoId`, que sí exige un UUID válido, y `entidad.getPrecio()` al de `Precio`, que exige un valor no negativo — la invariante existe, solo que vive en el **Objeto de Valor** (Value Object) de destino, no en la propia entidad de origen. Sin estos tres generadores dirigidos, Instancio genera por defecto una cadena alfanumérica arbitraria para cualquier campo `String` (algo como `"NHXJYDOW"`, verificado ejecutando el test sin ellos) y un `BigDecimal` que puede caer en negativo — y `mapper.aDominio(entidad)` lanza `IllegalArgumentException` antes de llegar a la primera aserción. `field(ProductoEntidad::getId)` selecciona el campo por referencia al método getter (funciona igual con `CategoriaEntidad::getId`, aunque `CategoriaEntidad` sea un campo anidado dentro de `ProductoEntidad`), y `.generate(selector, gen -> ...)` sustituye el generador por defecto de ese campo por uno acotado al formato o rango que el destino necesita.
+> Porque "sin invariantes propias" no es lo mismo que "sus valores nunca se validan en ningún sitio". `ProductoEntidadMapper.aDominio(entidad)` pasa `entidad.getId()` al constructor de `ProductoId`, que sí exige un UUID válido, y `entidad.getPrecio()` al de `Precio`, que exige un valor no negativo — la invariante existe, solo que vive en el Objeto de Valor de destino, no en la propia entidad de origen. Sin estos tres generadores dirigidos, Instancio genera por defecto una cadena alfanumérica arbitraria para cualquier campo `String` (algo como `"NHXJYDOW"`, verificado ejecutando el test sin ellos) y un `BigDecimal` que puede caer en negativo — y `mapper.aDominio(entidad)` lanza `IllegalArgumentException` antes de llegar a la primera aserción. `field(ProductoEntidad::getId)` selecciona el campo por referencia al método getter (funciona igual con `CategoriaEntidad::getId`, aunque `CategoriaEntidad` sea un campo anidado dentro de `ProductoEntidad`), y `.generate(selector, gen -> ...)` sustituye el generador por defecto de ese campo por uno acotado al formato o rango que el destino necesita.
 
 El segundo test del mismo archivo mapea en la dirección contraria (`Producto` de dominio → `ProductoEntidad`) y no necesita ningún generador dirigido para la `CategoriaEntidad` de destino — `Instancio.create(CategoriaEntidad.class)` a secas es suficiente, porque `aEntidad(...)` no valida nada, solo enlaza la instancia recibida tal cual. El contraste entre los dos tests es la lección completa: la necesidad de un generador dirigido no depende de la clase que Instancio rellena, sino de si el valor generado acaba pasando por una validación aguas abajo.
 
@@ -358,6 +368,9 @@ Producto producto = Producto.crear(
 | ✏️ | [`servicio-pedidos/.../objetovalor/Cantidad.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/Cantidad.java) | Objeto de Valor, cantidad de una línea de pedido | `@ValueObject` |
 | ✏️ | [`servicio-pedidos/.../objetovalor/ProductoId.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/ProductoId.java) | Objeto de Valor, identificador de producto (copia local del Contexto Delimitado de pedidos) | `@ValueObject` |
 | ✏️ | [`servicio-pedidos/.../objetovalor/Precio.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/Precio.java) | Objeto de Valor, precio unitario de una línea de pedido | `@ValueObject` |
+| ✏️ | [`servicio-pedidos/.../objetovalor/LineaPedido.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/modelo/objetovalor/LineaPedido.java) | Objeto de Valor, línea de un pedido (producto, cantidad y precio unitario) | Reclasificado de Entidad interna (antes en `dominio.modelo.entidad`) a Objeto de Valor: movido a `dominio.modelo.objetovalor`, convertido de clase a `record`, factoría `crear` → `de`, anotado `@ValueObject` (ver sección 3) |
+
+`PedidoMapper.java` (aplicación) y `PedidoEntidadMapper.java` (infraestructura) también se actualizan, solo para apuntar al nuevo paquete de `LineaPedido` — no se listan aparte por ser un cambio mecánico de import derivado de la fila anterior.
 
 ### Aplicación e infraestructura (servicio-catalogo)
 
