@@ -54,6 +54,27 @@ class ArquitecturaHexagonalTest {
 
 `@AnalyzeClasses` le dice a ArchUnit qué paquete escanear por reflexión de bytecode (no hace falta instanciar nada), y `@ArchTest` marca cada campo `ArchRule` como un test independiente que el motor de JUnit 5 de ArchUnit (`archunit-junit5`) descubre y ejecuta igual que cualquier `@Test`.
 
+Se añade con la versión gestionada en el `pom.xml` raíz (mismo patrón que `resilience4j-bom` en el capítulo anterior):
+
+```xml
+<!-- pom.xml (raíz) -->
+<dependency>
+	<groupId>com.tngtech.archunit</groupId>
+	<artifactId>archunit-junit5</artifactId>
+	<version>${archunit.version}</version>
+</dependency>
+```
+
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, con scope `test`):
+
+```xml
+<dependency>
+	<groupId>com.tngtech.archunit</groupId>
+	<artifactId>archunit-junit5</artifactId>
+	<scope>test</scope>
+</dependency>
+```
+
 > **¿Por qué `importOptions = ImportOption.DoNotIncludeTests.class`?**
 >
 > Sin ese filtro, ArchUnit escanea también las propias clases de test del módulo — y los tests de integración de este mismo capítulo (los que ejercitan `ProductoRepositorioAdaptador` o `ProductoController` directamente) violarían más adelante la regla hexagonal de la [sección 5](#5-jmolecules-arquitectura-hexagonal-como-vocabulario-verificable), que sí prohíbe llamar a un adaptador desde fuera de la propia capa de adaptadores. Ese tipo de llamada directa es exactamente lo que un test de integración necesita hacer para funcionar, así que no es una violación real de la arquitectura de producción — es ruido del propio test evaluándose a sí mismo. `DoNotIncludeTests` limita el escaneo al código de `src/main`, que es donde estas reglas tienen sentido.
@@ -61,6 +82,28 @@ class ArquitecturaHexagonalTest {
 ## 3. jMolecules: vocabulario DDD explícito en el dominio
 
 [jMolecules](https://github.com/xmolecules/jmolecules) es una librería de anotaciones e interfaces — sin ningún comportamiento en tiempo de ejecución — que expresa conceptos DDD directamente en el código: `@AggregateRoot`, `@Entity`, `@ValueObject`, `@Identity`, `@Repository`. No sustituye nada de lo que ya existía (el constructor privado, las factorías `crear`/`reconstruir`, `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` de la convención de Lombok en agregados): añade una capa de metadatos sobre ese mismo código, legible tanto por otro desarrollador como por herramientas como ArchUnit.
+
+Se añade con su propio BOM en el `pom.xml` raíz, para fijar en un solo sitio la versión de todos los artefactos de jMolecules que se usan a lo largo del capítulo:
+
+```xml
+<!-- pom.xml (raíz) -->
+<dependency>
+	<groupId>org.jmolecules</groupId>
+	<artifactId>jmolecules-bom</artifactId>
+	<version>${jmolecules-bom.version}</version>
+	<type>pom</type>
+	<scope>import</scope>
+</dependency>
+```
+
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `compile`: el dominio necesita estas anotaciones en tiempo de compilación, no solo en los tests):
+
+```xml
+<dependency>
+	<groupId>org.jmolecules</groupId>
+	<artifactId>jmolecules-ddd</artifactId>
+</dependency>
+```
 
 > **¿No es esto justo el tipo de dependencia de framework que `dominio` tiene prohibida?**
 >
@@ -101,7 +144,32 @@ Por el mismo motivo tampoco se usan `@Service` ni `@Factory` de jMolecules sobre
 
 ## 4. jMolecules + ArchUnit: reglas DDD automáticas
 
-Las anotaciones de la sección anterior no son solo documentación: el módulo `jmolecules-archunit` trae reglas de ArchUnit ya escritas que las leen por reflexión y verifican invariantes estructurales de DDD que ninguna regla de capas por paquete captura. `JMoleculesDddRules.all()` combina cuatro de esas reglas en una sola:
+Las anotaciones de la sección anterior no son solo documentación: el módulo `jmolecules-archunit` trae reglas de ArchUnit ya escritas que las leen por reflexión y verifican invariantes estructurales de DDD que ninguna regla de capas por paquete captura.
+
+Se añade con la versión gestionada en el `pom.xml` raíz:
+
+```xml
+<!-- pom.xml (raíz) -->
+<dependency>
+	<groupId>org.jmolecules.integrations</groupId>
+	<artifactId>jmolecules-archunit</artifactId>
+	<version>${jmolecules-integrations.version}</version>
+</dependency>
+```
+
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `test`):
+
+```xml
+<dependency>
+	<groupId>org.jmolecules.integrations</groupId>
+	<artifactId>jmolecules-archunit</artifactId>
+	<scope>test</scope>
+</dependency>
+```
+
+> Ver la [nota de la sección 5](#5-jmolecules-arquitectura-hexagonal-como-vocabulario-verificable) sobre por qué la versión de este artefacto no puede elegirse a partir del número más alto disponible en Maven Central sin más comprobación.
+
+`JMoleculesDddRules.all()` combina cuatro de esas reglas en una sola:
 
 ```java
 @ArchTest
@@ -117,7 +185,17 @@ Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPed
 
 ## 5. jMolecules: arquitectura hexagonal como vocabulario verificable
 
-Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. El encaje con la convención de paquetes de este monorepo es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
+Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM:
+
+```xml
+<!-- servicio-catalogo/pom.xml y servicio-pedidos/pom.xml (idéntica en ambos, scope compile) -->
+<dependency>
+	<groupId>org.jmolecules</groupId>
+	<artifactId>jmolecules-hexagonal-architecture</artifactId>
+</dependency>
+```
+
+El encaje con la convención de paquetes de este monorepo es casi literal — `aplicacion.puerto.entrada` ya se llama así porque es un Puerto de entrada:
 
 ```java
 @Repository
@@ -165,6 +243,27 @@ static final ArchRule reglaHexagonal = JMoleculesArchitectureRules.ensureHexagon
 
 `ProductoEntidad` (la entidad de persistencia Neo4j de `servicio-catalogo`, capítulo 1) no tenía, hasta este capítulo, ningún test dedicado a su mapper — `ProductoEntidadMapperTest` es nuevo. Es exactamente el tipo de objeto que [Instancio](https://www.instancio.org/) está pensado para rellenar: un `@NoArgsConstructor`/`@AllArgsConstructor` de Lombok sin ninguna validación propia, a diferencia del Agregado `Producto` o de `ProductoId`/`Precio`, que sí tienen invariantes en el constructor y por eso quedan fuera de este uso.
 
+Se añade con la versión gestionada en el `pom.xml` raíz:
+
+```xml
+<!-- pom.xml (raíz) -->
+<dependency>
+	<groupId>org.instancio</groupId>
+	<artifactId>instancio-junit</artifactId>
+	<version>${instancio.version}</version>
+</dependency>
+```
+
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `test`):
+
+```xml
+<dependency>
+	<groupId>org.instancio</groupId>
+	<artifactId>instancio-junit</artifactId>
+	<scope>test</scope>
+</dependency>
+```
+
 ```java
 ProductoEntidad entidad = Instancio.of(ProductoEntidad.class)
 		.generate(field(ProductoEntidad::getId), gen -> gen.text().uuid())
@@ -183,7 +282,26 @@ El segundo test del mismo archivo mapea en la dirección contraria (`Producto` d
 
 ## 7. DataFaker: datos realistas para los Objetos de Valor que sí validan
 
-Para el lado del `Producto` de dominio en ese mismo segundo test, [DataFaker](https://www.datafaker.net/) genera los valores que entran por `Producto.crear(...)` — el sucesor activo de Java Faker, sin releases desde 2020:
+Para el lado del `Producto` de dominio en ese mismo segundo test, [DataFaker](https://www.datafaker.net/) genera los valores que entran por `Producto.crear(...)` — el sucesor activo de Java Faker, sin releases desde 2020. Se añade con la versión gestionada en el `pom.xml` raíz:
+
+```xml
+<!-- pom.xml (raíz) -->
+<dependency>
+	<groupId>net.datafaker</groupId>
+	<artifactId>datafaker</artifactId>
+	<version>${datafaker.version}</version>
+</dependency>
+```
+
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `test`):
+
+```xml
+<dependency>
+	<groupId>net.datafaker</groupId>
+	<artifactId>datafaker</artifactId>
+	<scope>test</scope>
+</dependency>
+```
 
 ```java
 Producto producto = Producto.crear(
