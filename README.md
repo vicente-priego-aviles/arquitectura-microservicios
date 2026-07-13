@@ -36,8 +36,9 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 8 | [`capitulo-08-resiliencia`](../../tree/capitulo-08-resiliencia) | Resiliencia de la llamada síncrona | servicio-pedidos | `@Retryable`, `@ConcurrencyLimit`, Circuit Breaker (Resilience4j) |
 | 9 | [`capitulo-09-test-capa-web`](../../tree/capitulo-09-test-capa-web) | Test de la capa web | servicio-catalogo, servicio-pedidos | `MockMvcTester`, `RestTestClient` |
 | 10 | [`capitulo-10-archunit-jmolecules`](../../tree/capitulo-10-archunit-jmolecules) | Disciplina de tests y arquitectura: ArchUnit, jMolecules, Instancio y DataFaker | servicio-catalogo, servicio-pedidos | ArchUnit, jMolecules, Instancio, DataFaker |
+| 11 | [`capitulo-11-mensajeria-asincrona`](../../tree/capitulo-11-mensajeria-asincrona) | Mensajería asíncrona: Spring Cloud Stream (Kafka/RabbitMQ), Outbox transaccional, tercer microservicio Inventario | servicio-catalogo, servicio-pedidos, servicio-inventario | Spring Cloud Stream, Outbox transaccional, consumidores idempotentes |
 
-Consulta el [`CHECKLIST.md`](../../blob/capitulo-10-archunit-jmolecules/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-11-mensajeria-asincrona/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
@@ -64,8 +65,9 @@ Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-pare
 | Lombok | 1.18.46 | Reduce boilerplate (getters, constructores) |
 | Spring Framework | 7.0.8 | Núcleo de Spring Boot 4.1 (Spring MVC, Spring Web) |
 | [Spring Data Neo4j](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | 8.1.0 | Persistencia en grafo (`servicio-catalogo`) |
-| [Spring Data JPA](../../tree/capitulo-06-servicio-pedidos) | 4.1.0 | Persistencia relacional (`servicio-pedidos`) |
-| [Flyway](../../tree/capitulo-06-servicio-pedidos) | 12.4.0 | Migraciones de esquema (`servicio-pedidos`) |
+| [Spring Data JPA](../../tree/capitulo-06-servicio-pedidos) | 4.1.0 | Persistencia relacional (`servicio-pedidos`, `servicio-inventario`) |
+| [Flyway](../../tree/capitulo-06-servicio-pedidos) | 12.4.0 | Migraciones de esquema (`servicio-pedidos`, `servicio-inventario`) |
+| [Spring Cloud Stream](../../tree/capitulo-11-mensajeria-asincrona) | 5.0.2 | Mensajería asíncrona, binder Kafka/RabbitMQ intercambiable |
 | PostgreSQL JDBC driver | 42.7.11 | Driver de conexión (`servicio-pedidos`) |
 | Docker Compose | — | Entorno de desarrollo local |
 
