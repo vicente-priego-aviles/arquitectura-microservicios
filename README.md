@@ -96,7 +96,7 @@ Se añade con su propio BOM en el `pom.xml` raíz, para fijar en un solo sitio l
 </dependency>
 ```
 
-Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, scope `compile`: el dominio necesita estas anotaciones en tiempo de compilación, no solo en los tests):
+Y en `servicio-catalogo/pom.xml` y `servicio-pedidos/pom.xml` (idéntica en ambos, sin `<scope>`: el dominio necesita estas anotaciones en tiempo de compilación, no solo en los tests, así que se deja el scope `compile` por defecto de Maven en vez de forzar `test`):
 
 ```xml
 <dependency>
@@ -188,7 +188,7 @@ Las cuatro pasan limpias sobre `Producto`/`Categoria` y sobre `Pedido`/`LineaPed
 Las mismas anotaciones DDD tienen un equivalente para Arquitectura Hexagonal: `@PrimaryPort`/`@SecondaryPort` sobre los **Puertos de entrada** (Inbound Port) y **Puertos de salida** (Outbound Port), y `@PrimaryAdapter`/`@SecondaryAdapter` sobre los adaptadores que los implementan. Vienen en un artefacto separado del de las anotaciones DDD de la sección 3, ya cubierto por el mismo BOM:
 
 ```xml
-<!-- servicio-catalogo/pom.xml y servicio-pedidos/pom.xml (idéntica en ambos, scope compile) -->
+<!-- servicio-catalogo/pom.xml y servicio-pedidos/pom.xml (idéntica en ambos, sin <scope>: compile por defecto) -->
 <dependency>
 	<groupId>org.jmolecules</groupId>
 	<artifactId>jmolecules-hexagonal-architecture</artifactId>
