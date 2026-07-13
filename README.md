@@ -54,8 +54,8 @@ Versiones fijadas explícitamente como propiedad en el `pom.xml` raíz — cada 
 | [Resilience4j](../../tree/capitulo-08-resiliencia) | 2.3.0 | Circuit breaker (`servicio-pedidos`) |
 | [ArchUnit](../../tree/capitulo-10-archunit-jmolecules) | 1.4.1 | Reglas de arquitectura como test ejecutable |
 | [jMolecules](../../tree/capitulo-10-archunit-jmolecules) | 1.10.0 | Anotaciones DDD / Arquitectura Hexagonal (metadato puro, verificado por `jmolecules-archunit`) |
-| [Instancio](../../tree/capitulo-10-archunit-jmolecules) | 5.4.1 | Generación de datos de prueba (objetos sin invariantes) |
-| [DataFaker](../../tree/capitulo-10-archunit-jmolecules) | 2.4.3 | Generación de datos de prueba realistas (Objetos de Valor validados) |
+| [Instancio](../../tree/capitulo-10-archunit-jmolecules) | 5.6.0 | Generación de datos de prueba (objetos sin invariantes) |
+| [DataFaker](../../tree/capitulo-10-archunit-jmolecules) | 2.7.0 | Generación de datos de prueba realistas (Objetos de Valor validados) |
 
 Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-parent` (suben solas al actualizar la versión de Spring Boot):
 
