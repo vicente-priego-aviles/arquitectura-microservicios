@@ -5,6 +5,7 @@ spring:
     function:
       definition: productoCreadoConsumidor
     stream:
+      defaultBinder: rabbit
       bindings:
         productoCreado-out-0:
           destination: producto-creado

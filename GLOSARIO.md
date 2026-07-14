@@ -46,5 +46,9 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | Origen | Source | Spring Cloud Stream: rol de un `Supplier<T>` como `@Bean` — el binder lo invoca y publica cada valor que devuelve |
 | Procesador | Processor | Spring Cloud Stream: rol de un `Function<T, R>` como `@Bean` — el binder le entrega un mensaje consumido y publica el resultado que devuelve |
 | Destino | Sink | Spring Cloud Stream: rol de un `Consumer<T>` como `@Bean` — el binder le entrega un mensaje consumido y no publica nada a cambio |
+| Outbox transaccional | Transactional Outbox | Patrón: guardar el evento a publicar en la misma transacción que el cambio de estado que lo origina (tabla outbox), y publicarlo aparte con un proceso que sondea esa tabla (poller) — evita el problema de doble escritura cuando publicar en el broker ya no es atómico con el commit en base de datos |
+| Idempotencia | Idempotency | Capacidad de un consumidor de procesar el mismo mensaje más de una vez (por una redelivery del broker) sin duplicar su efecto de negocio, normalmente deduplicando por el id del propio evento |
+| — | Topic | En Kafka, el equivalente funcional a la pareja *exchange*+cola de RabbitMQ, pero en una sola pieza: un productor escribe directamente a un topic con nombre, que es también quien almacena — un log de solo-anexar que no borra el mensaje al consumirlo, a diferencia de la cola clásica de RabbitMQ; sin traducción española de uso consolidado |
+| — | Poller | Proceso que sondea (polls) periódicamente una fuente en busca de trabajo pendiente — aquí, una tabla outbox —, en vez de reaccionar a una notificación push; sin traducción española de uso consolidado |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.

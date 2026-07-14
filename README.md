@@ -1,197 +1,369 @@
-# Capítulo 11 — Mensajería asíncrona: Spring Cloud Stream con RabbitMQ
+# Capítulo 12 — Kafka, Outbox transaccional e Inventario
 
-Undécimo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-10-archunit-jmolecules`.
+Duodécimo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-11-mensajeria-asincrona-v2`.
 
 ## Índice
 
 1. [Motivación y arquitectura general del capítulo](#1-motivación-y-arquitectura-general-del-capítulo)
-2. [Spring Cloud Stream: el productor y el consumidor de `ProductoCreadoEvento`](#2-spring-cloud-stream-el-productor-y-el-consumidor-de-productocreadoevento)
-3. [Cómo probarlo](#3-cómo-probarlo)
-   1. [Demostración manual](#31-demostración-manual)
-   2. [Test de integración con Testcontainers](#32-test-de-integración-con-testcontainers)
-4. [Registro de archivos del capítulo](#4-registro-de-archivos-del-capítulo)
-5. [Referencias](#5-referencias)
+2. [Kafka como segundo binder](#2-kafka-como-segundo-binder)
+3. [`PedidoCreadoEvento`, Outbox transaccional y `servicio-inventario`](#3-pedidocreadoevento-outbox-transaccional-y-servicio-inventario)
+4. [Cómo probarlo](#4-cómo-probarlo)
+5. [Registro de archivos del capítulo](#5-registro-de-archivos-del-capítulo)
+6. [Referencias](#6-referencias)
 
 ---
 
 ## 1. Motivación y arquitectura general del capítulo
 
-El capítulo 4 introdujo el **Evento de Dominio** (Domain Event) con la mecánica más simple posible: `ApplicationEventPublisher`/`@EventListener` de Spring, publicando y consumiendo `ProductoCreadoEvento`/`RecomendacionAñadidaEvento` dentro del mismo proceso y la misma transacción. Aquel README ya dejaba dicho que el día que esos eventos "salieran del proceso" sería con un broker de mensajería, y que lo único que cambiaría sería la implementación de los *listeners*, no el punto de publicación. Este es ese capítulo.
+El capítulo 11 demostró la mecánica de Spring Cloud Stream — Binder, `StreamBridge`, `Consumer<T>` — sobre un único binder, RabbitMQ, dentro de un mismo microservicio: `servicio-catalogo` publicando y consumiendo su propio `ProductoCreadoEvento`. Quedaron dos preguntas abiertas a propósito: si ese mismo código funciona igual sobre otro broker sin tocar una línea, y qué cambia cuando el evento cruza de verdad a otro proceso, con una consecuencia de negocio real detrás en vez de una simple recomendación. Este capítulo responde a las dos.
 
-Sacar un evento del proceso no es solo un cambio de transporte. Con `@EventListener` síncrono, una excepción en el listener se propaga al hilo que publicó el evento — un oyente roto podía tumbar el caso de uso que lo generó. Con un broker de por medio, el fallo de un consumidor remoto ya no puede propagarse de vuelta: publicador y consumidor quedan desacoplados tanto en el tiempo (el consumidor no tiene por qué estar levantado en el instante en que se publica) como en el fallo (un consumidor caído no bloquea al publicador).
+### Kafka como segundo binder
 
-### Spring Cloud Stream y el Binder
+Antes de aplicar nada nuevo, este capítulo repite el ejercicio del binder sobre lo que ya existe: se añade el binder de Kafka junto al de RabbitMQ en `servicio-catalogo`, y se comprueba que el mismo `StreamBridge`/`Consumer<ProductoCreadoEvento>` del capítulo 11 sigue funcionando sin tocar una línea de código de negocio — solo cambia `spring.cloud.stream.defaultBinder`. Es la prueba de que el Binder cumple lo que promete, aislada del resto del capítulo: `producto-creado` sigue publicándose y consumiéndose sobre RabbitMQ tal y como quedó cerrado en el capítulo 11, y `servicio-inventario` (que nace en este mismo capítulo) se engancha a ese mismo *exchange* como su propio grupo consumidor — el escenario de reparto entre varios grupos que ya se apuntaba al cierre del capítulo anterior, ahora real.
 
-Kafka, RabbitMQ y el resto de brokers de mensajería son tecnologías distintas, con APIs distintas. **Spring Cloud Stream** resuelve eso con el concepto de **Binder** (adaptador entre el modelo de programación de Spring — `Supplier`/`Function`/`Consumer` como `@Bean` — y la API concreta de cada broker): el código de negocio, qué se publica y qué hace un consumidor al recibirlo, no depende de qué binder hay detrás; solo cambia qué binder está en el classpath y su configuración (`spring.cloud.stream.bindings.*`).
+### El caso real: `servicio-pedidos` → `servicio-inventario`
 
-Este capítulo demuestra la mecánica sobre un único binder, **RabbitMQ** — elegido por ser el más sencillo de poner en marcha y de verificar con un test real (ver [sección 3.2](#32-test-de-integración-con-testcontainers)) —, dentro de `servicio-catalogo`: mismo microservicio publicando y consumiendo su propio evento, para centrarse en cómo se declara un productor y un consumidor con Spring Cloud Stream antes de cruzarlo a otro proceso. El valor real del **Binder** — que ese mismo código funcione también sobre Kafka sin tocar una línea — se demuestra en el [capítulo 12](../../tree/capitulo-12-outbox-transaccional), justo antes de entrar en el caso con consistencia real entre microservicios: `servicio-pedidos` publicando un evento nuevo, `PedidoCreadoEvento`, consumido por un `servicio-inventario` que nace en ese capítulo para reservar/decrementar stock — con los dos problemas que aparecen en cuanto el mensaje cruza a otro proceso con una consecuencia de negocio real detrás (vender más unidades de las que hay): **Outbox transaccional** (Transactional Outbox) e **Idempotencia** (Idempotency).
+Kafka entra de verdad en juego con un evento nuevo: `PedidoCreadoEvento`, publicado por `servicio-pedidos` al crear un pedido. A diferencia de `ProductoCreadoEvento` — que nació en el capítulo 4 como un evento síncrono intra-proceso (`ApplicationEventPublisher`) y no cruzó a otro proceso hasta el capítulo 11 —, `PedidoCreadoEvento` nace directamente pensado para salir del proceso: dentro de `servicio-pedidos` no hay ningún oyente propio que lo consuma, así que no tendría sentido darle antes una versión síncrona que nadie escucharía. Su único consumidor es `servicio-inventario`, un microservicio nuevo que nace en este capítulo con un objetivo único — mantener el stock al día a partir de los eventos que llegan de los otros dos —, sin API REST, sin OpenAPI ni resiliencia propias: no expone nada, solo escucha `producto-creado` (para dar de alta el stock de cada producto nuevo) y `pedido-creado` (para decrementarlo con cada pedido).
 
-## 2. Spring Cloud Stream: el productor y el consumidor de `ProductoCreadoEvento`
+### Dos problemas nuevos: Outbox transaccional e Idempotencia
 
-![Arquitectura del capítulo: servicio-catalogo publicando y consumiendo ProductoCreadoEvento a través de un topic RabbitMQ, con StreamBridge como productor y un Consumer<T> como consumidor](docs/images/capitulo-11/arquitectura-mensajeria.png)
+Mientras `producto-creado` no cruzaba de proceso (capítulos 4 a 10) o, al cruzar, su único consumidor era el propio publicador (capítulo 11), dos problemas quedaban ocultos porque no tenían ninguna consecuencia real. Con `PedidoCreadoEvento` aparecen los dos a la vez, porque ahora sí hay algo real en juego: vender más unidades de las que quedan en stock.
 
-*`servicio-catalogo` publica `ProductoCreadoEvento` con `StreamBridge` y lo consume con un `Consumer<T>` a través de RabbitMQ — el mismo microservicio a ambos lados, la prueba de que la mecánica funciona antes de cruzarla a otro proceso (y a Kafka) en el capítulo 12.*
+- **Outbox transaccional** (Transactional Outbox): publicar en un broker externo ya no es atómico con el commit en base de datos, como sí lo era `ApplicationEventPublisher` síncrono (capítulo 4) al ejecutarse dentro de la misma transacción. Si el pedido se guarda pero el proceso cae antes de publicar el evento, `servicio-inventario` nunca se entera y el stock queda desincronizado sin que nada lo delate. La solución: guardar el evento en la misma transacción que el pedido, en una tabla outbox propia, y publicarlo aparte, con un proceso que sondea esa tabla (poller).
+- **Idempotencia** (Idempotency): un broker de mensajería no garantiza entrega exactamente una vez — un mensaje puede reentregarse (p. ej. tras un fallo de red al confirmar la recepción) y `servicio-inventario` recibirlo dos veces. Sin ninguna protección, decrementaría el stock dos veces por el mismo pedido. La solución: que el consumidor pueda procesar el mismo evento más de una vez sin duplicar su efecto — normalmente, deduplicando por el id del propio evento.
+
+![Arquitectura del capítulo: servicio-catalogo con RabbitMQ como binder por defecto y Kafka como segundo binder disponible; servicio-pedidos publicando PedidoCreadoEvento vía Outbox transaccional y Kafka, consumido por servicio-inventario con idempotencia y bootstrap de stock desde RabbitMQ](docs/images/capitulo-12/arquitectura-mensajeria.png)
+
+*Arquitectura del capítulo: `servicio-catalogo` sigue en RabbitMQ (con Kafka disponible como segundo binder, [sección 2](#2-kafka-como-segundo-binder)) y `servicio-pedidos` estrena Kafka para `PedidoCreadoEvento`, vía Outbox transaccional, consumido por `servicio-inventario` con idempotencia.*
 <br>
 
-### Dependencia y broker local
+## 2. Kafka como segundo binder
 
-Solo hace falta el binder de RabbitMQ; Spring Cloud Stream y Spring Cloud Function llegan como dependencias transitivas suyas:
+### Dependencia y broker compartido
+
+Solo hace falta añadir el binder de Kafka junto al de RabbitMQ que ya tenía `servicio-catalogo`:
 
 ```xml
 <!-- servicio-catalogo/pom.xml -->
 <dependency>
 	<groupId>org.springframework.cloud</groupId>
-	<artifactId>spring-cloud-stream-binder-rabbit</artifactId>
+	<artifactId>spring-cloud-stream-binder-kafka</artifactId>
 </dependency>
 ```
 
-`servicio-catalogo/compose.yaml` gana un servicio `rabbitmq` nuevo, junto al `neo4j` que ya tenía:
+A diferencia de Neo4j o RabbitMQ, Kafka no es infraestructura exclusiva de `servicio-catalogo`: este capítulo lo comparte también con `servicio-pedidos` y `servicio-inventario` (ver [sección 3](#3-pedidocreadoevento-outbox-transaccional-y-servicio-inventario)), así que su contenedor vive en un `compose.yaml` en la **raíz del repo** — imagen oficial `apache/kafka`, en modo KRaft (un único nodo hace de broker y de *controller* a la vez, sin Zookeeper — el propio proyecto Kafka lo simplificó así desde la 3.x). Al no ser el `compose.yaml` propio de ningún módulo, `spring-boot-docker-compose` no lo detecta automáticamente — cada `application.yml` que lo necesita fija `spring.kafka.bootstrap-servers: localhost:9092` explícito, y el broker se arranca a mano una vez, con `docker compose up -d` desde la raíz del repo, antes de levantar cualquiera de los microservicios que lo usan.
+
+Ese mismo `compose.yaml` raíz añade **Kafka UI** (interfaz web para explorar *topics* y mensajes) — concretamente **Kafbat UI**, no la imagen original de Provectus: el proyecto de Provectus está discontinuado, y los mismos contribuidores originales lo continúan como Kafbat UI, con desarrollo activo.
+
+| Parámetro | Valor |
+|---|---|
+| URL | `http://localhost:8090` |
+| Cluster | `local` |
+
+### Cambiar de binder: RabbitMQ → Kafka, sin tocar código
+
+Con dos binders en el *classpath*, Spring Cloud Stream ya no puede elegir uno por sí solo — arranca con un error hasta que se resuelve explícitamente con `spring.cloud.stream.defaultBinder`, tal como ya anticipaba la nota de la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2). El comportamiento por defecto no cambia — sigue siendo RabbitMQ:
 
 ```yaml
-# servicio-catalogo/compose.yaml
-services:
-  rabbitmq:
-    image: 'rabbitmq:4-management'
-    environment:
-      - 'RABBITMQ_DEFAULT_USER=guest'
-      - 'RABBITMQ_DEFAULT_PASS=guest'
-    ports:
-      - '5672:5672'
-      - '15672:15672'
+# servicio-catalogo/application.yml
+spring:
+  cloud:
+    stream:
+      defaultBinder: rabbit
 ```
 
-La imagen `4-management` (en vez de la variante sin sufijo) incluye el Management UI (puerto `15672`), la interfaz web para inspeccionar *exchanges*, colas y mensajes que se usa más adelante en este capítulo. El puerto `5672` es el protocolo AMQP que usa el binder para publicar/consumir. Es infraestructura exclusiva de este microservicio — nadie más la usa todavía — así que vive en el `compose.yaml` del propio módulo: `spring-boot-docker-compose` la detecta automáticamente al arrancar la aplicación (`docker compose up -d` desde `servicio-catalogo/`, una vez, antes de arrancar el microservicio), sin necesidad de fijar ninguna propiedad de conexión a mano.
+Un perfil nuevo lo mueve a Kafka sin tocar ni `ProductoCreadoListener` ni `ProductoCreadoConsumidorConfiguracion`:
 
-> **¿Hace falta indicar qué binder usar, si solo hay uno en el *classpath*?**
+```yaml
+# servicio-catalogo/application-kafka.yml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+  cloud:
+    stream:
+      defaultBinder: kafka
+```
+
+Arrancar con `--spring.profiles.active=kafka` (o `-Dspring-boot.run.profiles=kafka` con el plugin de Maven) mueve el mismo productor y el mismo consumidor de `producto-creado` al *topic* homónimo de Kafka — mismo `destination`, mismo `group`, ningún cambio de código —, verificado igual que en el capítulo 11: con un test de integración real (`Testcontainers` + `KafkaContainer`, `@ServiceConnection`), no solo a mano:
+
+```
+Producto creado (vía mensajería asíncrona): f95a7610-85df-4182-b8b0-bf9456a4c9db
+```
+
+Esta demostración queda aislada del resto del capítulo: el perfil `kafka` existe solo para probar que el Binder cumple lo que promete. En todo lo que sigue, `producto-creado` sigue publicándose y consumiéndose sobre RabbitMQ tal y como quedó cerrado en el capítulo 11 — es Kafka quien va a hacer falta para el evento nuevo de la [siguiente sección](#3-pedidocreadoevento-outbox-transaccional-y-servicio-inventario).
+
+> **Si `producto-creado` viaja igual por los dos, ¿en qué se diferencian realmente un *exchange* de RabbitMQ y un *topic* de Kafka?**
 >
-> No. `spring.cloud.stream.defaultBinder` solo hace falta cuando hay más de un binder en el *classpath* y Spring Cloud Stream no puede elegir por sí solo — con uno único (RabbitMQ, aquí) lo usa directamente. El capítulo 12 añade el binder de Kafka junto a este, y ahí sí aparece esa propiedad — el mismo mecanismo, con el matiz que aporta tener que elegir entre dos.
+> No son el mismo concepto con dos nombres distintos, aunque `destination`/`group` los traten de forma parecida. El *exchange* de RabbitMQ enruta pero no almacena — es la cola la que guarda el mensaje hasta que se consume (ver la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2)). Kafka no tiene esa capa de enrutado intermedia: un productor escribe directamente a un *topic* con nombre, y es el propio *topic* el que almacena — no una pieza aparte.
+>
+> Tampoco almacenan igual. La cola clásica de RabbitMQ (la del capítulo 11) borra el mensaje en cuanto se consume y confirma; el *topic* de Kafka es un log de solo-anexar que **no** lo borra — cada consumidor lee a su propio ritmo llevando la cuenta de por dónde va (su *offset*), y el mensaje sigue ahí para quien vuelva a leerlo o para un consumidor nuevo que empiece desde el principio. Lo más parecido a un *topic* de Kafka dentro de RabbitMQ no es la cola clásica ni el *exchange* — es **RabbitMQ Streams**, una función aparte que este tutorial no usa.
+>
+> `group` cumple un papel equivalente en los dos — que varias instancias se repartan el trabajo en vez de duplicarlo —, pero por mecanismos distintos: en RabbitMQ es parte del nombre físico de la cola (`destination.group`); en Kafka determina cómo se reparten entre las instancias activas las particiones del *topic* (cada partición la procesa una única instancia del grupo a la vez — el motivo, de hecho, de que este capítulo pueda dar por hecho que dos mensajes del mismo *topic* nunca se procesan en paralelo, ver la [sección 3](#3-pedidocreadoevento-outbox-transaccional-y-servicio-inventario)).
 
-### El modelo funcional: `Supplier`, `Function`, `Consumer`
+## 3. `PedidoCreadoEvento`, Outbox transaccional y `servicio-inventario`
 
-Spring Cloud Stream no define sus propias interfaces para productores y consumidores: reutiliza tres interfaces funcionales estándar de Java, del paquete `java.util.function`, cada una con una única forma de encajar un flujo de mensajes:
+### El evento nuevo
 
-| Interfaz | Firma | Rol en Spring Cloud Stream |
-|---|---|---|
-| `Supplier<T>` | `T get()` — no recibe nada, produce un `T` | **Origen** (Source): el binder llama a `get()` periódicamente y publica cada valor devuelto |
-| `Function<T, R>` | `R apply(T t)` — recibe un `T`, devuelve un `R` | **Procesador** (Processor): el binder consume un mensaje, lo transforma y publica el resultado |
-| `Consumer<T>` | `void accept(T t)` — recibe un `T`, no devuelve nada | **Destino** (Sink): el binder consume un mensaje y no publica nada a cambio; es el final de la cadena |
-
-Declarar un `@Bean` de uno de estos tres tipos es toda la API que hace falta conocer: ni el nombre del *exchange*/*topic*, ni el formato de mensaje, ni el broker concreto aparecen en la firma — eso se resuelve por configuración (`spring.cloud.stream.bindings.*`) y por el binder que haya en el *classpath* (ver la nota sobre **Binder** en la [sección 1](#1-motivación-y-arquitectura-general-del-capítulo)). Este capítulo usa un `Consumer<ProductoCreadoEvento>` para el lado que recibe el evento, y `StreamBridge` (no un `Supplier`, ver más abajo) para el lado que lo publica.
-
-### El consumidor: una función `Consumer<T>` como `@Bean`
-
-RabbitMQ no entrega mensajes directamente de productor a consumidor: usa un modelo de dos piezas con roles opuestos, pensado para que ninguno de los dos necesite conocer al otro.
-
-El productor no sabe —ni le importa— quién va a consumir el mensaje ni cuántos consumidores hay: solo publica en un *exchange*, un punto de entrada con nombre que no almacena nada. Es una tabla de enrutado, no un buzón: recibe cada mensaje y, según sus reglas de enrutado, decide a cuál o cuáles **colas** (Queue) reenviarlo, sin quedarse con una copia para sí mismo.
-
-Ese "cuáles" en plural es lo que permite que un mismo evento tenga más de un consumidor independiente: si mañana otro servicio —por ejemplo, un hipotético `servicio-inventario`— quisiera reaccionar también a `producto-creado`, bastaría con que declarara su propio `group` (`servicio-inventario`, distinto de `servicio-catalogo`); el binder le crearía su propia cola ligada al mismo *exchange*, sin tocar una línea de `servicio-catalogo` ni de su productor. Cada `group` recibe una copia completa de cada mensaje; dentro de un mismo `group`, en cambio, las réplicas se reparten esa copia entre sí (como ya se explica más abajo).
-
-Una cola sí almacena: es una estructura FIFO donde el *exchange* deposita los mensajes que le corresponden, y que retiene cada uno en orden hasta que un consumidor lo lee y lo confirma — momento en el que desaparece de ella (por eso, más abajo, el Management UI de RabbitMQ puede mostrar cuántos mensajes tiene "pendientes" cada cola). Es la cola, no el *exchange*, la que da elasticidad al conjunto: si el consumidor está caído, los mensajes no se pierden, simplemente se acumulan en su cola hasta que vuelve a levantarse.
-
-El consumidor nunca lee del *exchange*: siempre lee de una cola.
-
-Consumir `ProductoCreadoEvento` es declarar un `Consumer<ProductoCreadoEvento>` como bean — Spring Cloud Stream se encarga de crear esa cola y conectarla al *exchange* correspondiente, sin que este código sepa nada de esa infraestructura:
+`servicio-pedidos` no tenía eventos de dominio hasta ahora. `PedidoCreadoEvento` sigue la misma forma que `ProductoCreadoEvento` — un `record`, con una lista propia de líneas (solo `productoId`/`cantidad`, sin `precioUnitario`: el precio no le importa a quien reserva stock):
 
 ```java
-// infraestructura/adaptador/entrada/mensajeria/ProductoCreadoConsumidorConfiguracion.java
-@Configuration
-public class ProductoCreadoConsumidorConfiguracion {
-
-	@Bean
-	public Consumer<ProductoCreadoEvento> productoCreadoConsumidor() {
-		return evento -> log.info("Producto creado (vía mensajería asíncrona): {}", evento.productoId().valor());
+// dominio/evento/PedidoCreadoEvento.java
+public record PedidoCreadoEvento(PedidoId pedidoId, List<LineaPedidoCreada> lineas, Instant ocurridoEn) {
+	public record LineaPedidoCreada(ProductoId productoId, Cantidad cantidad) {
 	}
 }
 ```
 
-> **¿Por qué el `@Bean` del consumidor vive en una clase `@Configuration` con un nombre distinto al del método?**
->
-> Spring registra toda clase `@Configuration` como un bean más, con el nombre de la clase en *camelCase* (`productoCreadoConsumidor`, si la clase se llamara `ProductoCreadoConsumidor`). Nombrar así la clase produciría el mismo nombre de bean que el propio método `@Bean` (`productoCreadoConsumidor()`), y Spring no lo silencia: falla el arranque con `BeanDefinitionOverrideException`. Por eso la clase se llama `ProductoCreadoConsumidorConfiguracion` — el sufijo `Configuracion` no es solo un convencionalismo, evita que ambos nombres choquen.
+### Outbox transaccional: `CrearPedidoServicio`
 
-Spring Cloud Stream deriva de este bean un *binding* (la conexión configurable entre un bean funcional y un destino del broker) de entrada llamado `productoCreadoConsumidor-in-0`: nombre del bean + `-in-` + un índice, `0` aquí porque un `Consumer<T>` solo tiene un canal de entrada (ese índice distingue entre varios cuando una función tiene más de una entrada, algo que no ocurre en este capítulo). La configuración conecta ese *binding* con un destino concreto del broker:
+A diferencia de la [sección 2](#2-kafka-como-segundo-binder) (donde `ApplicationEventPublisher`/`StreamBridge` no necesitaban puerto de salida propio porque no tocaban persistencia), el Outbox **sí** es persistencia real — una tabla más, `outbox_evento` — así que tiene su propio puerto de salida, `OutboxPuertoSalida`, con un adaptador (`OutboxRepositorioAdaptador`) que serializa el evento a JSON (`JsonMapper` de Jackson 3, el auto-configurado por Spring Boot 4.1 — `ObjectMapper` de Jackson 2 ya no tiene bean propio) y lo guarda como una fila más, `publicado = false`.
+
+`CrearPedidoServicio` es donde se ve el porqué de todo esto:
+
+```java
+// aplicacion/servicio/CrearPedidoServicio.java
+@Override
+public PedidoDTO crear(CrearPedidoDTO dto) {
+	Pedido pedido = Pedido.crear(ClienteId.de(dto.clienteId()));
+	dto.lineas().forEach(linea -> {
+		ProductoId productoId = ProductoId.de(linea.productoId());
+		ProductoCatalogoDTO producto = catalogoPuertoSalida.buscarProductoPorId(productoId);
+		pedido.agregarLinea(productoId, Cantidad.de(linea.cantidad()), Precio.de(producto.precio()));
+	});
+
+	// Solo esta parte necesita transacción: las llamadas HTTP a catálogo ya han terminado.
+	Pedido guardado = transactionTemplate.execute(status -> {
+		Pedido resultado = pedidoRepositorioPuertoSalida.guardar(pedido);
+		outboxPuertoSalida.guardar(aEvento(resultado));
+		return resultado;
+	});
+	return pedidoMapper.aDTO(guardado);
+}
+```
+
+El método no lleva `@Transactional` a nivel de clase o método completo a propósito: las llamadas HTTP a `servicio-catalogo` (una por línea) ya han terminado antes de abrir la transacción — envolverlas también habría mantenido una conexión a base de datos abierta mientras se espera red, el mismo antipatrón que el propio Outbox existe para evitar en el otro sentido. `TransactionTemplate` (autoconfigurado por Spring Boot junto al `PlatformTransactionManager` de JPA) acota la transacción explícitamente a las dos escrituras: guardar el `Pedido` y guardar la fila outbox son atómicas — o las dos, o ninguna.
+
+### El poller: `OutboxPollerScheduler`
+
+Nada publica en Kafka todavía — la fila outbox solo está guardada. Un `@Scheduled` cada 2 segundos busca filas `publicado = false`, las envía con `StreamBridge` y las marca:
+
+```java
+// infraestructura/adaptador/salida/mensajeria/OutboxPollerScheduler.java
+@Scheduled(fixedDelay = 2000)
+@Transactional
+public void publicarEventosPendientes() {
+	for (OutboxEventoEntidad evento : outboxEventoRepositorioJpa.findByPublicadoFalseOrderByIdAsc()) {
+		streamBridge.send("pedidoCreado-out-0", MessageBuilder.withPayload(evento.getPayload())
+				.setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON)
+				.build());
+		outboxEventoRepositorioJpa.save(new OutboxEventoEntidad(
+				evento.getId(), evento.getTipoEvento(), evento.getPayload(), evento.getOcurridoEn(), true));
+		log.info("Evento outbox {} publicado en pedido-creado", evento.getId());
+	}
+}
+```
+
+`@Transactional` aquí cubre únicamente el trabajo contra Postgres — leer las filas pendientes y marcarlas publicadas. Kafka queda completamente fuera de esa transacción: el `PlatformTransactionManager` de JPA no sabe nada del broker, así que un `ROLLBACK` no puede deshacer un mensaje que ya salió hacia Kafka.
+
+> **¿Espera el poller a que Kafka confirme la entrega antes de marcar la fila como publicada?**
+>
+> No, y conviene saberlo: `StreamBridge.send(...)` con el binder de Kafka es asíncrono por defecto — entrega el mensaje al productor interno y devuelve el control casi de inmediato, sin esperar el ACK del broker. (Se podría forzar lo contrario con `spring.cloud.stream.kafka.bindings.pedidoCreado-out-0.producer.sync=true`, pero este capítulo no lo activa.) Que `send(...)` no lance una excepción no garantiza que el mensaje haya llegado — solo que se encoló correctamente para enviarse.
+>
+> Esto es precisamente lo que hace seguro mantener el envío *dentro* de la misma transacción que la escritura en base de datos, a diferencia de las llamadas HTTP de `CrearPedidoServicio` ([sección anterior](#outbox-transaccional-crearpedidoservicio)): una llamada HTTP bloquea el hilo — y la conexión a base de datos que mantiene abierta — hasta que llega la respuesta completa; un `send()` asíncrono no bloquea esperando red, así que no reproduce el antipatrón de mantener una conexión reservada mientras se espera una respuesta remota.
+
+Como Hibernate no vuelca (*flush*) los `UPDATE` a Postgres hasta el `COMMIT` final del método — no hay ninguna consulta intermedia en el bucle que fuerce un *flush* antes —, todos los `publicado = true` de una misma pasada quedan pendientes en memoria hasta el final. Si en algún punto del bucle salta una excepción, Spring hace rollback de **toda** la transacción: se descartan también los `publicado = true` de eventos que sí llegaron a enviarse en iteraciones anteriores de esa misma pasada. Esos eventos quedan como `publicado = false` y se reintentan en la siguiente pasada, dos segundos después — un duplicado en Kafka, inofensivo gracias a la idempotencia del consumidor (ver más abajo).
+
+> **¿Importa el orden entre `send` y `save`?**
+>
+> Sí, aunque en este código concreto invertirlo (`save` antes que `send`) no rompería nada por ahora: como nada se vuelca a disco hasta el `COMMIT` final, un fallo en cualquier punto del bucle sigue deshaciendo el lote completo sin importar el orden en que se escribieran las sentencias. Pero el orden actual no es casual — es la regla general del patrón Outbox transaccional, aplicada aquí como buena práctica aunque el código actual no dependa estrictamente de ella: nunca marcar un evento como publicado antes de tener cierta confianza en que salió.
+>
+> En cuanto el código cambie — una consulta añadida al bucle, un `saveAndFlush` en vez de `save` — y ese `UPDATE` empiece a llegar a Postgres antes de confirmarse el envío, invertir el orden abriría la puerta al peor fallo posible del patrón: la base de datos diría "publicado", el poller nunca volvería a mirar esa fila (solo busca `publicado = false`), y el evento se habría perdido en silencio si el envío fallaba justo después. Preferir el duplicado — barato, ya cubierto por la idempotencia del consumidor — a la pérdida silenciosa — no recuperable — es la razón de que el orden correcto sea enviar primero y marcar después.
+
+El *payload* ya viene serializado desde `OutboxRepositorioAdaptador`, así que el poller solo reenvía la cadena JSON tal cual — no necesita reconstruir `PedidoCreadoEvento` en memoria para volver a serializarlo.
+
+### `servicio-inventario`: un microservicio mínimo, dos binders
+
+Módulo nuevo, sin API REST, sin OpenAPI, sin resiliencia propia — su único trabajo es reaccionar a eventos. El agregado `Stock` (identidad = `productoId`, sin `StockId` propio) tiene un único método de negocio con invariante real:
+
+```java
+// dominio/modelo/agregado/Stock.java
+public void decrementar(int cantidadADecrementar) {
+	if (cantidadADecrementar > cantidad.valor()) {
+		throw new StockInsuficienteException(productoId, cantidad.valor(), cantidadADecrementar);
+	}
+	this.cantidad = Cantidad.de(cantidad.valor() - cantidadADecrementar);
+}
+```
+
+Consume **dos** eventos, cada uno con su propio DTO de deserialización (Capa Anticorrupción — la misma idea que `ProductoCatalogoDTO` en el capítulo 7, aquí aplicada a mensajería en vez de HTTP: `servicio-inventario` nunca importa una clase de dominio de otro Contexto Delimitado) — y, a propósito, cada uno sobre un broker distinto:
+
+- `producto-creado`, sobre **RabbitMQ** (el mismo *exchange* del capítulo 11, ahora con un segundo grupo consumidor, `servicio-inventario`): dar de alta el `Stock` de cada producto nuevo con una cantidad inicial fija (100 unidades) — resuelve "de dónde sale el stock" sin inventar un endpoint REST solo para sembrarlo a mano.
+- `pedido-creado`, sobre **Kafka** (el *topic* nuevo de este capítulo): reservar stock, decrementando una línea por producto.
 
 ```yaml
-# application.yml
+# servicio-inventario/application.yml
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
   cloud:
     function:
-      definition: productoCreadoConsumidor
+      definition: productoCreadoConsumidor;pedidoCreadoConsumidor
     stream:
+      defaultBinder: rabbit
       bindings:
         productoCreadoConsumidor-in-0:
           destination: producto-creado
-          group: servicio-catalogo
+          group: servicio-inventario
+        pedidoCreadoConsumidor-in-0:
+          destination: pedido-creado
+          group: servicio-inventario
+          binder: kafka
 ```
 
-`destination` es el nombre lógico del canal — en RabbitMQ, el binder lo crea como un *exchange* con ese mismo nombre.
-
-`group` identifica el grupo de consumidores: sin él, cada instancia del proceso `servicio-catalogo` (por ejemplo, cada réplica desplegada al escalar horizontalmente — no cada bean `productoCreadoConsumidor` dentro de un mismo proceso, del que solo hay una instancia, con scope `singleton`) se suscribiría de forma anónima, con su propia cola temporal, y todas recibirían una copia de cada mensaje; con `group`, el binder crea en su lugar una única cola compartida — nombrada `destination.group` (aquí, `producto-creado.servicio-catalogo`) — y la liga a ese *exchange*. Todas las réplicas que compartan `group` leen de esa misma cola y se reparten los mensajes entre sí, en vez de que cada una reciba su propia copia.
-
-`definition` le dice explícitamente a Spring Cloud Stream qué beans funcionales activar como *bindings* — necesario aquí porque, al convivir con `StreamBridge` (ver más abajo), la detección automática deja de ser inequívoca. A diferencia de `destination`, aquí el valor no es libre: Spring Cloud Function lo usa para buscar el bean por nombre en el contexto de Spring, así que tiene que coincidir exactamente con el nombre del método `@Bean` (`productoCreadoConsumidor`); con varios beans que activar, se listarían separados por `;`.
-
-![RabbitMQ: el exchange producto-creado enruta a la cola compartida producto-creado.servicio-catalogo, de la que leen todas las réplicas de servicio-catalogo repartiéndose los mensajes](docs/images/capitulo-11/rabbitmq-exchange-cola.png)
-
-*El exchange solo enruta, no almacena; la cola sí, y es una única cola compartida por todas las réplicas que compartan `group` — cada mensaje va a una sola réplica, no se duplica.*
-
-### El productor: `StreamBridge`, no una `Function`
-
-El evento no se produce a demanda de un *poll* externo, sino de forma reactiva cuando `CrearProductoServicio` ya guardó el producto — eso descarta un `Supplier<T>` como bean (pensado para que el binder pida el siguiente valor). En su lugar, `StreamBridge` envía un mensaje bajo demanda desde cualquier punto del código:
-
 ```java
-// infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java
-@Component
-@RequiredArgsConstructor
-public class ProductoCreadoListener {
-
-	private final StreamBridge streamBridge;
-
-	@EventListener
-	public void alCrearProducto(ProductoCreadoEvento evento) {
-		streamBridge.send("productoCreado-out-0", evento);
-	}
+// infraestructura/adaptador/entrada/mensajeria/ProductoCreadoConsumidorConfiguracion.java
+@Bean
+public Consumer<ProductoCreadoEventoDTO> productoCreadoConsumidor() {
+	return evento -> crearStockPuertoEntrada.crear(evento.productoId().valor());
 }
 ```
 
-A diferencia del `-in-0` del consumidor —derivado automáticamente del nombre del bean—, aquí `"productoCreado-out-0"` es un string elegido a mano: no hay ningún `@Bean` del que Spring pueda derivarlo. `StreamBridge.send(nombre, evento)` busca primero un *binding* configurado con ese nombre exacto (el `bindings.productoCreado-out-0` de más abajo) y, si no lo encuentra, lo trata directamente como nombre de destino y crea el *binding* sobre la marcha. El sufijo `-out-0` es solo una convención que imita el patrón `-in-<índice>` del consumidor, no una regla que `StreamBridge` imponga — igual de válido habría sido llamarlo `"cualquierNombre"`, siempre que código y configuración usen el mismo.
+> **¿Por qué no activar el perfil `kafka` aquí también, como en `servicio-catalogo`?**
+>
+> Porque `servicio-catalogo` no cambió de sitio: sigue publicando `producto-creado` sobre RabbitMQ, tal como quedó en el capítulo 11 (ver [sección 2](#2-kafka-como-segundo-binder)). Si `servicio-inventario` moviera *todos* sus consumidores a Kafka, dejaría de escuchar donde `servicio-catalogo` realmente publica. `defaultBinder: rabbit` mantiene ese binding en RabbitMQ; el `binder: kafka` explícito en `pedidoCreadoConsumidor-in-0` es lo único que cambia — una anulación puntual, no un cambio global. Es la misma idea que la [sección 2](#2-kafka-como-segundo-binder) demostró con `defaultBinder`, aplicada aquí a una sola *binding* en vez de a todo el microservicio: Spring Cloud Stream permite mezclar *brokers* dentro del mismo proceso, no solo elegir uno para toda la aplicación.
 
-Esta es literalmente la misma clase del capítulo 4, en el mismo paquete — solo cambió el cuerpo del método, tal como allí se prometía: `CrearProductoServicio` sigue llamando a `ApplicationEventPublisher.publishEvent(...)` exactamente igual, sin saber que el evento ahora sale del proceso. El *binding* de salida (`productoCreado-out-0`) se configura igual que el de entrada:
+### Idempotencia: `eventos_procesados`
 
-```yaml
-# application.yml
-spring:
-  cloud:
-    stream:
-      bindings:
-        productoCreado-out-0:
-          destination: producto-creado
+`ReservarStockServicio` comprueba y marca el `pedidoId` como procesado dentro de la misma transacción que decrementa el stock:
+
+```java
+// aplicacion/servicio/ReservarStockServicio.java
+@Override
+@Transactional
+public void reservar(String pedidoId, List<LineaReservaDTO> lineas) {
+	if (eventoProcesadoPuertoSalida.yaProcesado(pedidoId)) {
+		log.info("Pedido {} ya procesado, se descarta el duplicado", pedidoId);
+		return;
+	}
+	lineas.forEach(linea -> {
+		ProductoId productoId = ProductoId.de(linea.productoId());
+		Stock stock = stockRepositorioPuertoSalida.buscarPorProductoId(productoId)
+				.orElseThrow(() -> new StockNoEncontradoException(productoId));
+		stock.decrementar(linea.cantidad());
+		stockRepositorioPuertoSalida.guardar(stock);
+	});
+	eventoProcesadoPuertoSalida.marcarProcesado(pedidoId);
+}
 ```
 
-Mismo `destination` (`producto-creado`) en ambos *bindings*: el productor y el consumidor son, en este capítulo, el mismo microservicio hablando consigo mismo a través del broker — la prueba de que la mecánica funciona antes de cruzarla a otro proceso en el capítulo 12.
+Una tabla de una sola columna útil (`pedido_id`, clave primaria) es toda la deduplicación que hace falta: si el `pedidoId` ya está, se descarta el duplicado sin tocar el stock.
 
-Con esto, el flujo completo queda cerrado: `POST /api/productos` → `ApplicationEventPublisher` (en proceso) → `StreamBridge` → RabbitMQ → `Consumer<ProductoCreadoEvento>` → log.
+### `@Transactional` frente a `TransactionTemplate`: dos formas de decir "esto es una transacción"
 
-![Secuencia: POST al productor (síncrono, en proceso) hasta la respuesta HTTP, seguido de un corte asíncrono, y después la entrega al Consumer del lado consumidor](docs/images/capitulo-11/secuencia-mensajeria.png)
+El capítulo usa las dos formas de delimitar una transacción en Spring, y no por variar el estilo: cada una resuelve un problema distinto, y mezclarlas sin criterio es una fuente de bugs sutiles. Merece la pena pararse en el porqué, porque a primera vista `@Transactional` parece "la forma normal" y `TransactionTemplate` un añadido innecesario — no lo es.
 
-*El paso 6 (respuesta HTTP al cliente) ocurre sin esperar al paso 7 (entrega al consumidor) — es el propio corte asíncrono que motiva este capítulo, ver [sección 1](#1-motivación-y-arquitectura-general-del-capítulo). Verificado en la práctica en la [sección 3](#3-cómo-probarlo).*
+**`@Transactional` es una anotación que activa una transacción *por fuera* del método, no dentro de él.** Cuando Spring ve `@Transactional` en un bean gestionado, no modifica el bytecode del método: crea un **proxy** alrededor del bean (una clase generada en tiempo de ejecución que implementa la misma interfaz, o extiende la misma clase) y registra ese proxy en el contenedor en vez del objeto real. Cuando otro componente llama a `reservarStockPuertoEntrada.reservar(...)`, en realidad está llamando al proxy — que abre la transacción, invoca al método real, y hace commit o rollback al terminar. El propio objeto `ReservarStockServicio` no sabe nada de transacciones; toda la magia vive en ese envoltorio externo.
+
+> **¿Por qué importa que sea un proxy externo, y no algo "dentro" del método?**
+>
+> Porque un proxy solo puede interceptar llamadas que le lleguen **desde fuera**. Si un método `A()` de una clase llama a otro método `B()` de esa misma clase (`this.B()`), esa llamada nunca pasa por el proxy — va directa al objeto real, sin pasar por el envoltorio que abre la transacción. Es la famosa limitación de **auto-invocación** (self-invocation) de Spring AOP: anotar `B()` con `@Transactional` no sirve de nada si quien lo llama es `A()` de la misma clase. Esto no es un caso raro — es la razón por la que `CrearPedidoServicio` **no puede** resolver su problema poniendo `@Transactional` en un método privado nuevo que solo contenga las dos escrituras: ese método privado, llamado desde `crear(...)` en la misma clase, jamás pasaría por el proxy.
+
+Con esa limitación en mente, las cuatro piezas de mensajería de este capítulo se dividen en tres grupos:
+
+| Componente | Mecanismo | Por qué |
+|---|---|---|
+| `OutboxPollerScheduler.publicarEventosPendientes()` | `@Transactional` | Lo invoca el *scheduler* de Spring desde fuera de la clase — pasa por el proxy sin problema. El envío a Kafka no es trabajo de base de datos, pero al ser asíncrono no bloquea esperando red, así que no reproduce el antipatrón de mantener una conexión abierta durante una llamada remota — ver la nota en la [sección del poller](#el-poller-outboxpollerscheduler). |
+| `ReservarStockServicio.reservar(...)` | `@Transactional` | Igual: todo el cuerpo es acceso a base de datos. Lo invoca `PedidoCreadoConsumidorConfiguracion` desde fuera de la clase — mismo caso. |
+| `CrearPedidoServicio.crear(...)` | `TransactionTemplate` | El método **empieza** con llamadas HTTP a `servicio-catalogo` (una por línea del pedido) que deben quedar **fuera** de la transacción — abrirla antes mantendría una conexión a base de datos reservada mientras se espera red, exactamente el problema de recursos que una transacción corta busca evitar. Poner `@Transactional` en todo `crear(...)` envolvería también esas llamadas HTTP; ponerlo en un método aparte de la misma clase no funcionaría, por auto-invocación. |
+| `CrearStockServicio.crear(...)` | Ninguno | Solo hace **una** escritura (`guardar`). No hay nada que agrupar — ver el [apartado dedicado](#por-qué-crearstockservicio-no-lleva-ni-transactional-ni-transactiontemplate) más abajo. |
+
+**`TransactionTemplate` es la alternativa programática**: en vez de una anotación que Spring interpreta por fuera, es un objeto (`org.springframework.transaction.support.TransactionTemplate`, autoconfigurado por Spring Boot junto al `PlatformTransactionManager` de JPA) que se inyecta como una dependencia más y al que se le pasa explícitamente, como una función, el bloque de código que debe ser transaccional:
+
+```java
+// aplicacion/servicio/CrearPedidoServicio.java
+Pedido guardado = transactionTemplate.execute(status -> {
+	Pedido resultado = pedidoRepositorioPuertoSalida.guardar(pedido);
+	outboxPuertoSalida.guardar(aEvento(resultado));
+	return resultado;
+});
+```
+
+No hay proxy, no hay auto-invocación posible: el límite de la transacción es el propio bloque `{ ... }` del lambda, visible directamente en el código, sin depender de quién llama a qué método ni de en qué clase vive. `execute(...)` devuelve el valor que retorne el lambda (aquí, el `Pedido` guardado); existe también `executeWithoutResult(...)`, la misma idea para cuando no hace falta devolver nada.
+
+**Lo que no cambia entre una forma y otra**: el comportamiento ante errores. Ambas usan por debajo el mismo `PlatformTransactionManager`, y ambas hacen rollback automático por defecto cuando el bloque protegido lanza una excepción no comprobada (`RuntimeException`/`Error`) — que es el tipo de excepción que lanzan `StockNoEncontradoException`, `StockInsuficienteException` y las excepciones de JPA. Si `stock.decrementar(...)` lanza `StockInsuficienteException` a mitad de un pedido con varias líneas, el rollback deshace también las líneas ya decrementadas antes de esa — la transacción, sea `@Transactional` o `TransactionTemplate`, es una unidad, no una serie de pasos independientes.
+
+**La regla práctica para el resto del capítulo (y de los que vengan)**: primero, ¿hay de verdad **varias escrituras** que deban tener éxito o fallar juntas? Si no las hay, no hace falta ningún mecanismo — es el caso de `CrearStockServicio`, que se explica en detalle a continuación. Si las hay, y el método es transaccional de principio a fin e invocado desde fuera de la clase, `@Transactional` es más simple. Si dentro del método hay trabajo que **no** debe formar parte de la transacción — típicamente una llamada de red —, `TransactionTemplate` acotado a mano a la parte que sí lo es.
+
+### Por qué `CrearStockServicio` no lleva ni `@Transactional` ni `TransactionTemplate`
+
+Este es el caso que más cuesta ver, porque la intuición dice "hay una comprobación y luego una escritura, eso suena a que debería ir junto en una transacción". Vale la pena desmontarlo paso a paso, porque la respuesta correcta no es "se les olvidó" — es que una transacción no es la herramienta para el problema que parece tener este método.
+
+```java
+// aplicacion/servicio/CrearStockServicio.java
+@Override
+public void crear(String productoId) {
+	ProductoId id = ProductoId.de(productoId);
+	if (stockRepositorioPuertoSalida.buscarPorProductoId(id).isPresent()) {
+		log.info("Stock ya existente para el producto {}, se descarta el duplicado", productoId);
+		return;
+	}
+	stockRepositorioPuertoSalida.guardar(Stock.crear(id, Cantidad.de(CANTIDAD_INICIAL)));
+}
+```
+
+**Primer punto: aquí solo hay *una* escritura, no varias.** Compáralo con `CrearPedidoServicio` (guardar el `Pedido` **y** guardar la fila outbox — dos escrituras que deben ir juntas) o con `ReservarStockServicio` (decrementar stock de cada línea **y** marcar el `pedidoId` como procesado — de nuevo varias escrituras). El problema que una transacción resuelve es exactamente ese: "estas *N* escrituras son una sola unidad, o se hacen todas o no se hace ninguna". Aquí solo hay una escritura (`guardar`). No hay nada que agrupar con ella — no hay un segundo `guardar`/`marcarProcesado` que pudiera quedarse a medias si el proceso se cae justo después del primero.
+
+**Segundo punto, y el que de verdad sorprende: cada llamada a un repositorio Spring Data JPA (`buscarPorProductoId`, que por debajo es un `findById`; `guardar`, que es un `save`) *ya* es transaccional por sí sola, sin que este proyecto haga nada.** Spring Data JPA anota internamente cada método de `SimpleJpaRepository` (la implementación que hay detrás de cualquier `JpaRepository`) con `@Transactional` — se puede comprobar en su código fuente. Así que `crear(...)` sin ningún `@Transactional` propio ya ejecuta dos operaciones, cada una perfectamente atómica por su cuenta: la lectura no puede "romperse a medias" (una consulta no tiene estados intermedios), y la escritura tampoco (o se guarda la fila entera, o no se guarda). Envolver ambas en una transacción exterior no añadiría atomicidad donde ya la hay — añadiría, como mucho, que compartan la misma conexión/sesión en vez de una cada una.
+
+**Entonces, ¿qué es lo que *sí* podría salir mal, y por qué una transacción no lo arregla?** Lo único remotamente delicado es una carrera entre dos ejecuciones concurrentes de `crear(...)` para el mismo `productoId` — dos hilos que comprueban "¿existe?" a la vez, ven los dos que no, e intentan guardar los dos. Mira la secuencia con dos hilos, T1 y T2, hablando con la base de datos por separado:
+
+```
+T1: SELECT ... WHERE producto_id = 'X'   → 0 filas (no existe)
+T2: SELECT ... WHERE producto_id = 'X'   → 0 filas (T1 todavía no ha hecho commit)
+T1: INSERT INTO stock (producto_id, ...) VALUES ('X', 100)   → OK, commit
+T2: INSERT INTO stock (producto_id, ...) VALUES ('X', 100)   → ERROR: viola la clave primaria
+```
+
+Y aquí está el punto que de verdad hay que interiorizar: **poner `@Transactional` en `crear(...)` no evita esta secuencia.** Una transacción agrupa las operaciones *de una misma ejecución* en una unidad atómica — no impide que **otra** ejecución concurrente (T2, en su propia transacción, completamente independiente de la de T1) haga su propia lectura mientras la de T1 todavía no ha hecho commit. Eso no es un fallo de atomicidad dentro de una transacción; es una carrera *entre* transacciones distintas, y el nivel de aislamiento por defecto de la mayoría de bases de datos (`READ COMMITTED`, incluido PostgreSQL) no la impide — solo garantiza que cada lectura ve datos ya confirmados, no que nadie más pueda estar leyendo lo mismo al mismo tiempo que tú. Para impedir la carrera de verdad haría falta algo más: un nivel de aislamiento más estricto (`SERIALIZABLE`), un bloqueo pesimista (`SELECT ... FOR UPDATE`, que obligaría a T2 a esperar a que T1 termine antes de leer), o un `INSERT ... ON CONFLICT DO NOTHING` a nivel de base de datos. Ninguna de esas tres cosas es lo que hace `@Transactional`.
+
+**Entonces, ¿por qué este código es seguro tal cual está?** Por dos motivos, uno estructural y uno de diseño:
+
+1. `producto_id` es la clave primaria de `stock`. Si la carrera ocurriera de verdad, el segundo `INSERT` no corrompería nada en silencio — la base de datos lo rechaza con una violación de restricción única, una excepción ruidosa y visible, no un dato incorrecto pasando desapercibido.
+2. En el despliegue de este capítulo (una única instancia de `servicio-inventario`), la carrera ni siquiera es alcanzable: dentro de un mismo grupo consumidor, tanto RabbitMQ como Kafka entregan los mensajes de una cola/partición **de uno en uno**, nunca en paralelo (ver la nota de la [sección 2](#2-kafka-como-segundo-binder) sobre qué hace `group` en cada broker). Dos ejecuciones de `crear(...)` para el mismo `productoId` solo podrían solaparse si hubiera más de una instancia del servicio consumiendo del mismo *topic*/*exchange* — algo que este capítulo no monta. Si en el futuro hubiera varias instancias, la clave primaria seguiría evitando datos corruptos; simplemente uno de los dos consumidores vería una excepción en vez de terminar en silencio, y ahí sí sería el momento de añadir un bloqueo o un `ON CONFLICT`.
+
+La lección general, más allá de este método concreto: una transacción resuelve *"estas escrituras, dentro de esta misma ejecución, son todo o nada"*. No resuelve *"nadie más puede estar haciendo lo mismo que yo a la vez"* — eso es un problema de **concurrencia**, no de **transaccionalidad**, y se arregla con herramientas distintas (restricciones únicas, bloqueos, aislamiento). Confundir ambas es lo que lleva a poner `@Transactional` por reflejo en sitios donde no aporta nada.
+
+## 4. Cómo probarlo
+
+![Diagrama de secuencia completo: crear producto (bootstrap de stock vía RabbitMQ) y crear pedido (Outbox transaccional, poller, evento pedido-creado vía Kafka, reserva de stock e idempotencia)](docs/images/capitulo-12/secuencia-mensajeria.png)
+
+*Secuencia completa de los pasos que siguen a continuación — desde `POST /api/productos` hasta la reserva de stock (y qué pasa si el broker reentrega `pedido-creado`).*
 <br>
 
-## 3. Cómo probarlo
+```bash
+# Todos los tests del reactor (los tres microservicios)
+./mvnw test
+```
 
-Hay dos formas de comprobar todo lo anterior: una demostración manual (arrancando `servicio-catalogo` y creando un producto por REST) y un test de integración con Testcontainers que fija ese comportamiento de forma determinista, sin depender de mirar logs ni el Management UI a mano.
-
-### 3.1. Demostración manual
+Para el flujo completo hace falta el Kafka compartido de la raíz arrancado **antes** que cualquier microservicio — a diferencia de Neo4j/RabbitMQ/PostgreSQL, no lo arranca automáticamente ninguno de ellos (ver la nota de la [sección 2](#2-kafka-como-segundo-binder)):
 
 ```bash
-cd servicio-catalogo
 docker compose up -d
 ```
 
 ```bash
-cd ..
-./mvnw -pl servicio-catalogo spring-boot:run
+./mvnw -pl servicio-catalogo spring-boot:run &
 ```
 
-Crear una categoría y un producto — el alta del producto dispara, de fondo, el productor y el consumidor:
+```bash
+./mvnw -pl servicio-pedidos spring-boot:run &
+```
+
+```bash
+./mvnw -pl servicio-inventario spring-boot:run &
+```
+
+Categoría y producto en el catálogo — el alta del producto ya dispara, de fondo, la creación de su stock en `servicio-inventario` (100 unidades), vía RabbitMQ:
 
 ```bash
 curl -X POST http://localhost:8080/api/categorias \
@@ -207,81 +379,64 @@ curl -X POST http://localhost:8080/api/productos \
 # => {"id":"<productoId>","nombre":"Balón", ...}
 ```
 
-El log del propio proceso (terminal donde corre `spring-boot:run`) confirma la vuelta completa en cuanto el consumidor recibe el evento:
-
-```
-Producto creado (vía mensajería asíncrona): 9fca8f33-4cef-4bc2-a38a-400089fab879
-```
-
-El *exchange* `producto-creado` y la cola `producto-creado.servicio-catalogo` (`destination.group`) que el binder crea automáticamente también son visibles en el Management UI de RabbitMQ (puerto `15672`, usuario/contraseña `guest`/`guest`):
-
-![Cola producto-creado.servicio-catalogo en el Management UI de RabbitMQ, con 0 mensajes pendientes tras haber sido consumido](docs/images/capitulo-11/rabbitmq-management-colas.png)
-
-*Pestaña "Queues and Streams" del Management UI de RabbitMQ, tras crear un producto por REST: la cola `producto-creado.servicio-catalogo` existe, sin mensajes pendientes porque `servicio-catalogo` ya la consumió.*
-
-La pestaña "Exchanges" muestra el propio exchange `producto-creado`, con su gráfico de tasas de mensajes — aquí, tras crear varios productos seguidos:
-
-![Exchange producto-creado en el Management UI de RabbitMQ, con el gráfico de tasas de publicación (Publish In/Out) subiendo tras crear varios productos](docs/images/capitulo-11/rabbitmq-exchange-tasas.png)
-
-*Pestaña "Exchanges" → `producto-creado`: `Publish (In)` es lo que `StreamBridge` publica en el exchange; `Publish (Out)` es lo que el exchange reenvía a la cola — coinciden porque hay una única cola ligada, sin fan-out a varios grupos.*
-
-Para parar todo:
+Un pedido de ese producto — la línea entre `servicio-pedidos` y `servicio-inventario` es asíncrona (Outbox + poller, cada 2 s, sobre Kafka), así que el stock tarda un instante en reflejarse, no es inmediato como la respuesta HTTP:
 
 ```bash
-cd servicio-catalogo
+curl -X POST http://localhost:8081/api/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"clienteId":"3fa85f64-5717-4562-b3fc-2c963f66afa6","lineas":[{"productoId":"<productoId>","cantidad":3}]}'
+```
+
+El resultado se comprueba en tres sitios:
+
+- **El Management UI de RabbitMQ** (`http://localhost:15672`, `guest`/`guest`, ver la [sección "El consumidor" del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2)): pestaña "Queues and Streams", ahora con **dos** colas sobre el mismo *exchange* `producto-creado` — `producto-creado.servicio-catalogo` (capítulo 11) y `producto-creado.servicio-inventario` (nueva en este capítulo) —, la prueba visual de que dos grupos distintos reciben cada uno su propia copia del mismo mensaje.
+- **Kafbat UI** (`http://localhost:8090`, ver [sección 2](#2-kafka-como-segundo-binder)): pestaña *Messages* del *topic* `pedido-creado`, con el *payload* JSON real del evento.
+- **La base de datos de `servicio-inventario`** directamente:
+
+  ```bash
+  docker exec -it servicio-inventario-postgres-1 psql -U inventario -d inventario \
+    -c "SELECT * FROM stock WHERE producto_id = '<productoId>';"
+  # => cantidad = 97
+  ```
+
+  ```bash
+  docker exec -it servicio-inventario-postgres-1 psql -U inventario -d inventario \
+    -c "SELECT * FROM eventos_procesados;"
+  # => una fila con el pedidoId del pedido recién creado
+  ```
+
+![Pestaña Queues and Streams del Management UI de RabbitMQ mostrando dos colas sobre el mismo exchange producto-creado: producto-creado.servicio-catalogo y producto-creado.servicio-inventario](docs/images/capitulo-12/rabbitmq-management-colas.png)
+
+*Dos colas sobre el mismo exchange `producto-creado` — `servicio-catalogo` (capítulo 11) e `servicio-inventario` (este capítulo), cada una su propio grupo consumidor.*
+<br>
+
+![Pestaña Messages de Kafbat UI sobre el topic pedido-creado, con dos mensajes: el original y la redelivery forzada, mismo pedidoId](docs/images/capitulo-12/kafbat-ui-mensajes.png)
+
+*Pestaña "Messages" de Kafbat UI sobre el topic `pedido-creado`: dos mensajes con el mismo `pedidoId` — el original (offset 0) y la redelivery forzada a mano (offset 1) —, ambos conservados porque Kafka no borra al consumir.*
+<br>
+
+> **¿Cómo se prueba la idempotencia de verdad, más allá del test con mocks?**
+>
+> Forzando una redelivery real: `servicio-pedidos` marca sus eventos como publicados en la tabla outbox, así que basta con desmarcar uno para que el poller lo reenvíe.
+>
+> ```bash
+> docker exec -it servicio-pedidos-postgres-1 psql -U pedidos -d pedidos \
+>   -c "UPDATE outbox_evento SET publicado = false WHERE id = <id>;"
+> ```
+>
+> A los pocos segundos, el log de `servicio-inventario` muestra `Pedido <id> ya procesado, se descarta el duplicado` y la `cantidad` de `stock` no cambia — la comprobación real de que reenviar el mismo evento no duplica el efecto.
+
+Para parar los tres procesos (lanzados en segundo plano con `&`, sin ningún proceso en primer plano al que enviarle `Ctrl+C`):
+
+```bash
+pkill -f "spring-boot:run"
+```
+
+```bash
 docker compose down
 ```
 
-### 3.2. Test de integración con Testcontainers
-
-Todo lo anterior —que `StreamBridge` publica de verdad, que el `Consumer<T>` real lo recibe— se acaba de verificar solo a mano: arrancar el microservicio, hacer un `POST`, mirar el log. Útil para entender el flujo, pero nada impide que un cambio futuro rompa esa cadena sin que ningún test lo note. **Testcontainers** (librería Java que levanta un contenedor Docker real — aquí, un broker de mensajería — solo durante la ejecución de un test, y lo destruye al terminar) cierra ese hueco: el test habla con un broker de verdad, no con un simulacro.
-
-```java
-// infraestructura/adaptador/entrada/mensajeria/ProductoCreadoMensajeriaIntegrationTest.java
-@SpringBootTest
-@Testcontainers
-@ExtendWith(OutputCaptureExtension.class)
-class ProductoCreadoMensajeriaIntegrationTest {
-
-	@Container
-	@ServiceConnection
-	static final RabbitMQContainer rabbitmq = new RabbitMQContainer(DockerImageName.parse("rabbitmq:4-management"));
-
-	@Autowired
-	private ApplicationEventPublisher applicationEventPublisher;
-
-	@Test
-	void productoCreadoViajaPorRabbitMqHastaElConsumidorReal(CapturedOutput output) {
-		ProductoId productoId = ProductoId.generar();
-
-		applicationEventPublisher.publishEvent(new ProductoCreadoEvento(productoId, Instant.now()));
-
-		await().atMost(Duration.ofSeconds(10))
-				.untilAsserted(() -> assertThat(output)
-						.contains("Producto creado (vía mensajería asíncrona): " + productoId.valor()));
-	}
-}
-```
-
-Pieza por pieza:
-
-- **`@Container`** (Testcontainers) marca `rabbitmq` como un contenedor gestionado por el test: se arranca antes de la clase y se destruye al terminar — nada que instalar ni dejar corriendo de fondo, igual que ya hace `StockRepositorioAdaptadorIntegrationTest` en capítulos posteriores con PostgreSQL.
-- **`@ServiceConnection`** (Spring Boot) rellena automáticamente la configuración de conexión (`spring.rabbitmq.*`) apuntando al contenedor recién levantado, con el puerto aleatorio real que Docker le asignó — sin escribir esa propiedad a mano. Esto es todo lo que hace falta aquí: el binder de RabbitMQ de Spring Cloud Stream reutiliza el `ConnectionFactory` estándar de Spring Boot, el mismo que `@ServiceConnection` ya configura.
-- **`CapturedOutput`/`OutputCaptureExtension`** (Spring Boot) capturan todo lo que se escribe por log durante el test. Como `ProductoCreadoConsumidorConfiguracion` ya logueaba la línea que se ve más arriba como verificación manual, el test reutiliza ese mismo log como prueba de que el consumidor real la recibió, sin tocar código de producción.
-- **`await().untilAsserted(...)`** (Awaitility, incluida en las dependencias de test de Spring Boot) es necesaria porque esto es asíncrono de verdad: publicar el evento no bloquea hasta que el broker lo entrega. Un `assertThat` normal fallaría casi siempre por pura carrera; `await()` reintenta la comprobación hasta que se cumple o pasa el tiempo máximo.
-
-> **¿Será igual de simple cuando el capítulo 12 añada el test equivalente para Kafka?**
->
-> No del todo, y merece la pena adelantarlo. El binder de Kafka de Spring Cloud Stream, a diferencia del de RabbitMQ, no reutiliza el `ConnectionFactory` que `@ServiceConnection` ya rellena — tiene su propia propiedad de broker (`spring.cloud.stream.kafka.binder.brokers`), independiente de la que Spring Boot configura automáticamente para el cliente de Kafka estándar. Hace falta un paso extra para conectar ambas. El capítulo 12 retoma este mismo patrón de test con Kafka y explica ese matiz con detalle, precisamente porque ahí es donde se nota.
-
-Para ejecutar este test (y el resto del módulo):
-
-```bash
-# Todos los tests del módulo, incluido el de Testcontainers + RabbitMQ
-./mvnw -pl servicio-catalogo test
-```
-
-## 4. Registro de archivos del capítulo
+## 5. Registro de archivos del capítulo
 
 🌱 Creado · ✏️ Actualizado · 🗑️ Eliminado
 
@@ -289,39 +444,121 @@ Para ejecutar este test (y el resto del módulo):
 
 |  | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
-| ✏️ | [`pom.xml`](servicio-catalogo/pom.xml) | Configuración Maven del módulo | Añade el binder de RabbitMQ de Spring Cloud Stream (`spring-cloud-stream-binder-rabbit`) y el módulo de Testcontainers para RabbitMQ (`org.testcontainers:rabbitmq`) |
-| ✏️ | [`compose.yaml`](servicio-catalogo/compose.yaml) | Infraestructura local exclusiva del microservicio | Añade RabbitMQ (`rabbitmq:4-management`) junto al Neo4j ya existente |
-| ✏️ | [`application.yml`](servicio-catalogo/src/main/resources/application.yml) | Configuración de Spring Boot del microservicio | Añade la función activa y los *bindings* de entrada/salida de Spring Cloud Stream para el destino `producto-creado` |
+| 🌱 | [`compose.yaml`](compose.yaml) (raíz) | Infraestructura compartida entre microservicios: Kafka (`apache/kafka`, KRaft) y Kafbat UI | --- |
+| ✏️ | [`pom.xml`](pom.xml) (raíz) | Parent multi-módulo | Declara el módulo nuevo `servicio-inventario` |
+| ✏️ | [`pom.xml`](servicio-catalogo/pom.xml) (servicio-catalogo) | Configuración Maven del módulo | Añade el binder de Kafka (`spring-cloud-stream-binder-kafka`) junto al de RabbitMQ ya existente |
+| ✏️ | [`application.yml`](servicio-catalogo/src/main/resources/application.yml) (servicio-catalogo) | Configuración de Spring Boot del microservicio | Añade `defaultBinder: rabbit`, explícito ahora que hay dos binders en el *classpath* |
+| 🌱 | [`application-kafka.yml`](servicio-catalogo/src/main/resources/application-kafka.yml) (servicio-catalogo) | Perfil que mueve `producto-creado` a Kafka (`defaultBinder: kafka`), sin tocar código — demo aislada de intercambio de binder | --- |
+| ✏️ | [`pom.xml`](servicio-pedidos/pom.xml) (servicio-pedidos) | Configuración Maven del módulo | Añade `spring-cloud-stream-binder-kafka` |
+| ✏️ | [`application.yml`](servicio-pedidos/src/main/resources/application.yml) (servicio-pedidos) | Configuración de Spring Boot del microservicio | Añade `spring.kafka.bootstrap-servers` y el *binding* de salida `pedidoCreado-out-0` |
+| 🌱 | [`V2__crear_tabla_outbox.sql`](servicio-pedidos/src/main/resources/db/migration/V2__crear_tabla_outbox.sql) (servicio-pedidos) | Migración Flyway: tabla `outbox_evento` | --- |
+| 🌱 | [`pom.xml`](servicio-inventario/pom.xml) | Configuración Maven del módulo nuevo `servicio-inventario` (binders de Kafka y RabbitMQ, JPA/Flyway/PostgreSQL) | --- |
+| 🌱 | [`compose.yaml`](servicio-inventario/compose.yaml) | Infraestructura local exclusiva: PostgreSQL propio | --- |
+| 🌱 | [`application.yml`](servicio-inventario/src/main/resources/application.yml) | Configuración de Spring Boot: `defaultBinder: rabbit` + `binder: kafka` explícito en el *binding* de `pedido-creado` | --- |
+| 🌱 | [`V1__crear_tablas_stock.sql`](servicio-inventario/src/main/resources/db/migration/V1__crear_tablas_stock.sql) | Migración Flyway: tablas `stock` y `eventos_procesados` | --- |
 
-### Infraestructura de entrada
+### Dominio (servicio-pedidos)
 
 |  | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
-| ✏️ | [`ProductoCreadoListener.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/evento/ProductoCreadoListener.java) | Reacciona en proceso a `ProductoCreadoEvento` | Su implementación pasa de solo loguear a reenviar el evento al broker vía `StreamBridge` |
-| 🌱 | [`ProductoCreadoConsumidorConfiguracion.java`](servicio-catalogo/src/main/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/mensajeria/ProductoCreadoConsumidorConfiguracion.java) | Consumidor del destino `producto-creado` (`Consumer<ProductoCreadoEvento>`), agnóstico del binder | --- |
+| 🌱 | [`PedidoCreadoEvento.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/dominio/evento/PedidoCreadoEvento.java) | Evento de Dominio: pedido creado, con sus líneas (producto + cantidad) | --- |
+
+### Dominio (servicio-inventario)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`Stock.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/dominio/modelo/agregado/Stock.java) | Agregado raíz: cantidad disponible de un producto, con invariante de no negatividad | --- |
+| 🌱 | [`ProductoId.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/dominio/modelo/objetovalor/ProductoId.java) | Objeto de Valor, identificador de producto (copia local del Contexto Delimitado de inventario) | --- |
+| 🌱 | [`Cantidad.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/dominio/modelo/objetovalor/Cantidad.java) | Objeto de Valor, cantidad de stock (admite cero, a diferencia de la `Cantidad` de una línea de pedido) | --- |
+| 🌱 | [`StockInsuficienteException.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/dominio/excepcion/StockInsuficienteException.java) | Excepción de dominio: se pide decrementar más stock del disponible | --- |
+| 🌱 | [`StockNoEncontradoException.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/dominio/excepcion/StockNoEncontradoException.java) | Excepción de dominio: no existe stock registrado para un producto | --- |
+
+### Aplicación (servicio-pedidos)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`OutboxPuertoSalida.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/puerto/salida/OutboxPuertoSalida.java) | Puerto de salida: guardar un evento en la tabla outbox | --- |
+| ✏️ | [`CrearPedidoServicio.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/aplicacion/servicio/CrearPedidoServicio.java) | Servicio de aplicación, caso de uso crear pedido | Guardar el `Pedido` y guardar el evento outbox pasan a ser atómicos (`TransactionTemplate`), acotado solo a esas dos escrituras |
+
+### Aplicación (servicio-inventario)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`StockRepositorioPuertoSalida.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/puerto/salida/StockRepositorioPuertoSalida.java) | Puerto de salida de persistencia de stock | --- |
+| 🌱 | [`EventoProcesadoPuertoSalida.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/puerto/salida/EventoProcesadoPuertoSalida.java) | Puerto de salida: consultar/marcar un `pedidoId` como ya procesado (idempotencia) | --- |
+| 🌱 | [`CrearStockPuertoEntrada.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/puerto/entrada/CrearStockPuertoEntrada.java) | Puerto de entrada, caso de uso dar de alta el stock de un producto nuevo | --- |
+| 🌱 | [`ReservarStockPuertoEntrada.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/puerto/entrada/ReservarStockPuertoEntrada.java) | Puerto de entrada, caso de uso reservar stock de un pedido | --- |
+| 🌱 | [`LineaReservaDTO.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/dto/entrada/LineaReservaDTO.java) | DTO de entrada: producto + cantidad a reservar | --- |
+| 🌱 | [`CrearStockServicio.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/servicio/CrearStockServicio.java) | Da de alta el stock de un producto con una cantidad inicial fija, idempotente por existencia | --- |
+| 🌱 | [`ReservarStockServicio.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/aplicacion/servicio/ReservarStockServicio.java) | Decrementa el stock de cada línea de un pedido, idempotente por `pedidoId` (`@Transactional`) | --- |
+
+### Infraestructura de entrada (servicio-catalogo)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`ProductoCreadoKafkaMensajeriaIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/mensajeria/ProductoCreadoKafkaMensajeriaIntegrationTest.java) | Test de integración: el mismo productor/consumidor de `producto-creado` funciona sobre Kafka (`Testcontainers` + `KafkaContainer`, perfil `kafka`) | --- |
+
+### Infraestructura de entrada (servicio-inventario)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`ProductoCreadoConsumidorConfiguracion.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/entrada/mensajeria/ProductoCreadoConsumidorConfiguracion.java) | Consumidor de `producto-creado` sobre RabbitMQ (bootstrap de stock) | --- |
+| 🌱 | [`ProductoCreadoEventoDTO.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/entrada/mensajeria/ProductoCreadoEventoDTO.java) | Traducción propia (Capa Anticorrupción) del `ProductoCreadoEvento` ajeno | --- |
+| 🌱 | [`PedidoCreadoConsumidorConfiguracion.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/entrada/mensajeria/PedidoCreadoConsumidorConfiguracion.java) | Consumidor de `pedido-creado` sobre Kafka (reserva de stock) | --- |
+| 🌱 | [`PedidoCreadoEventoDTO.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/entrada/mensajeria/PedidoCreadoEventoDTO.java) | Traducción propia (Capa Anticorrupción) del `PedidoCreadoEvento` ajeno | --- |
+
+### Infraestructura de salida (servicio-pedidos)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`OutboxEventoEntidad.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/entidad/OutboxEventoEntidad.java) | Entidad JPA de la tabla `outbox_evento` | --- |
+| 🌱 | [`OutboxEventoRepositorioJpa.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/repositorio/OutboxEventoRepositorioJpa.java) | Repositorio Spring Data de `outbox_evento` | --- |
+| 🌱 | [`OutboxRepositorioAdaptador.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/persistencia/adaptador/OutboxRepositorioAdaptador.java) | Adaptador de salida: serializa el evento a JSON y lo guarda en la tabla outbox | --- |
+| 🌱 | [`OutboxPollerScheduler.java`](servicio-pedidos/src/main/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/mensajeria/OutboxPollerScheduler.java) | Sondea la tabla outbox cada 2 s y publica en Kafka los eventos pendientes (`@Transactional`) | --- |
+
+### Infraestructura de salida (servicio-inventario)
+
+|  | Archivo | Descripción funcional | Descripción del cambio |
+|:---:|---|---|---|
+| 🌱 | [`StockEntidad.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/entidad/StockEntidad.java) | Entidad JPA de la tabla `stock` | --- |
+| 🌱 | [`EventoProcesadoEntidad.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/entidad/EventoProcesadoEntidad.java) | Entidad JPA de la tabla `eventos_procesados` | --- |
+| 🌱 | [`StockRepositorioJpa.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/repositorio/StockRepositorioJpa.java) | Repositorio Spring Data de `stock` | --- |
+| 🌱 | [`EventoProcesadoRepositorioJpa.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/repositorio/EventoProcesadoRepositorioJpa.java) | Repositorio Spring Data de `eventos_procesados` | --- |
+| 🌱 | [`StockRepositorioAdaptador.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/adaptador/StockRepositorioAdaptador.java) | Adaptador de salida de persistencia de stock | --- |
+| 🌱 | [`EventoProcesadoRepositorioAdaptador.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/adaptador/EventoProcesadoRepositorioAdaptador.java) | Adaptador de salida del registro de eventos procesados | --- |
+| 🌱 | [`StockEntidadMapper.java`](servicio-inventario/src/main/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/mapper/StockEntidadMapper.java) | Mapper MapStruct dominio↔entidad de `Stock` | --- |
 
 ### Documentación/diagramas
 
 |  | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
-| 🌱 | [`rabbitmq-management-colas.png`](docs/images/capitulo-11/rabbitmq-management-colas.png) | Captura del Management UI de RabbitMQ, pestaña "Queues and Streams" | --- |
-| 🌱 | [`rabbitmq-exchange-tasas.png`](docs/images/capitulo-11/rabbitmq-exchange-tasas.png) | Captura del Management UI de RabbitMQ, pestaña "Exchanges" (gráfico de tasas de publicación) | --- |
-| 🌱 | [`capitulo-11-mensajeria-arquitectura.excalidraw`](docs/diagramas/capitulo-11-mensajeria-arquitectura.excalidraw) | Diagrama de arquitectura del capítulo | --- |
-| 🌱 | [`arquitectura-mensajeria.png`](docs/images/capitulo-11/arquitectura-mensajeria.png) | Render PNG del diagrama anterior | --- |
-| 🌱 | [`capitulo-11-rabbitmq-exchange-cola.excalidraw`](docs/diagramas/capitulo-11-rabbitmq-exchange-cola.excalidraw) | Diagrama de detalle: enrutado exchange → cola compartida → réplicas del consumidor | --- |
-| 🌱 | [`rabbitmq-exchange-cola.png`](docs/images/capitulo-11/rabbitmq-exchange-cola.png) | Render PNG del diagrama anterior | --- |
-| 🌱 | [`capitulo-11-secuencia-mensajeria.excalidraw`](docs/diagramas/capitulo-11-secuencia-mensajeria.excalidraw) | Diagrama de secuencia: del `POST` a la respuesta HTTP (síncrono) y, tras el corte asíncrono, la entrega al consumidor | --- |
-| 🌱 | [`secuencia-mensajeria.png`](docs/images/capitulo-11/secuencia-mensajeria.png) | Render PNG del diagrama anterior | --- |
+| 🌱 | [`capitulo-12-arquitectura.excalidraw`](docs/diagramas/capitulo-12-arquitectura.excalidraw) | Diagrama de arquitectura general del capítulo | --- |
+| 🌱 | [`arquitectura-mensajeria.png`](docs/images/capitulo-12/arquitectura-mensajeria.png) | Render PNG del diagrama anterior | --- |
+| 🌱 | [`rabbitmq-management-colas.png`](docs/images/capitulo-12/rabbitmq-management-colas.png) | Captura del Management UI de RabbitMQ, pestaña "Queues and Streams", con las dos colas sobre `producto-creado` | --- |
+| 🌱 | [`kafbat-ui-mensajes.png`](docs/images/capitulo-12/kafbat-ui-mensajes.png) | Captura de Kafbat UI, mensajes del topic `pedido-creado` (original + redelivery forzada) | --- |
+| 🌱 | [`capitulo-12-secuencia-completa.excalidraw`](docs/diagramas/capitulo-12-secuencia-completa.excalidraw) | Diagrama de secuencia del flujo completo (crear producto + crear pedido) | --- |
+| 🌱 | [`secuencia-mensajeria.png`](docs/images/capitulo-12/secuencia-mensajeria.png) | Render PNG del diagrama anterior | --- |
 
 ### Tests
 
 |  | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
-| 🌱 | [`ProductoCreadoMensajeriaIntegrationTest.java`](servicio-catalogo/src/test/java/com/javacadabra/tienda/catalogo/infraestructura/adaptador/entrada/mensajeria/ProductoCreadoMensajeriaIntegrationTest.java) | Test de integración: verifica con un `RabbitMQContainer` real (Testcontainers) que el productor y el consumidor se comunican de verdad a través del broker | --- |
+| ✏️ | [`CrearPedidoServicioTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/aplicacion/servicio/CrearPedidoServicioTest.java) | Test unitario de `CrearPedidoServicio` | Añade el mock de `OutboxPuertoSalida` y un `TransactionTemplate` que ejecuta en el mismo hilo, y verifica que el evento se guarda en el outbox |
+| ✏️ | [`CatalogoAdaptadorResilienciaTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/salida/http/adaptador/CatalogoAdaptadorResilienciaTest.java) | Test del circuit breaker hacia catálogo | `outbox.poller.enabled=false` para no depender de un Kafka real |
+| ✏️ | [`PedidoControllerRestTestClientIntegrationTest.java`](servicio-pedidos/src/test/java/com/javacadabra/tienda/pedidos/infraestructura/adaptador/entrada/rest/PedidoControllerRestTestClientIntegrationTest.java) | Test extremo a extremo del controlador de pedidos | `outbox.poller.enabled=false` para no depender de un Kafka real |
+| 🌱 | [`StockTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/dominio/modelo/agregado/StockTest.java) | Test unitario del agregado `Stock` (decrementar, invariante de stock insuficiente) | --- |
+| 🌱 | [`CantidadTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/dominio/modelo/objetovalor/CantidadTest.java) | Test unitario del Objeto de Valor `Cantidad` | --- |
+| 🌱 | [`CrearStockServicioTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/aplicacion/servicio/CrearStockServicioTest.java) | Test unitario de `CrearStockServicio` (Mockito) | --- |
+| 🌱 | [`ReservarStockServicioTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/aplicacion/servicio/ReservarStockServicioTest.java) | Test unitario de `ReservarStockServicio`: reserva, idempotencia y stock insuficiente (Mockito) | --- |
+| 🌱 | [`StockRepositorioAdaptadorIntegrationTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/infraestructura/adaptador/salida/persistencia/StockRepositorioAdaptadorIntegrationTest.java) | Test de integración del adaptador de persistencia JPA (Testcontainers + PostgreSQL real) | --- |
+| 🌱 | [`ArquitecturaHexagonalTest.java`](servicio-inventario/src/test/java/com/javacadabra/tienda/inventario/arquitectura/ArquitecturaHexagonalTest.java) | Reglas ArchUnit/jMolecules de capas y DDD para `servicio-inventario` | --- |
 
-## 5. Referencias
+## 6. Referencias
 
 - [Spring Cloud Stream — Reference Documentation](https://docs.spring.io/spring-cloud-stream/reference/)
+- [Spring Cloud Stream — Kafka Binder](https://docs.spring.io/spring-cloud-stream/reference/kafka/spring-cloud-stream-binder-kafka.html)
 - [Spring Cloud Stream — RabbitMQ Binder](https://docs.spring.io/spring-cloud-stream/reference/rabbit/spring-cloud-stream-binder-rabbit.html)
-- [Testcontainers — RabbitMQ Module](https://java.testcontainers.org/modules/rabbitmq/)
-- [Spring Boot — Testcontainers (Service Connections)](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html)
+- [Apache Kafka — Docker documentation (imagen `apache/kafka`)](https://github.com/apache/kafka/blob/trunk/docker/examples/README.md)
+- [Kafbat UI — GitHub](https://github.com/kafbat/kafka-ui)
+- [Spring Boot 4.1 — JSON (Jackson 3)](https://docs.spring.io/spring-boot/reference/features/json.html)
+- [microservices.io — Pattern: Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html)

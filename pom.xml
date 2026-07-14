@@ -31,6 +31,7 @@
 	<modules>
 		<module>servicio-catalogo</module>
 		<module>servicio-pedidos</module>
+		<module>servicio-inventario</module>
 	</modules>
 
 	<properties>
