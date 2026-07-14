@@ -5,7 +5,6 @@ spring:
     function:
       definition: productoCreadoConsumidor
     stream:
-      defaultBinder: kafka
       bindings:
         productoCreado-out-0:
           destination: producto-creado
