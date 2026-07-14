@@ -40,6 +40,11 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | — | Test Slice | Carga solo la porción del contexto de Spring relacionada con una capa concreta (p. ej. `@WebMvcTest` carga solo la infraestructura MVC), sustituyendo el resto de colaboradores por dobles de prueba en vez de arrancar el contexto completo; sin traducción española de uso consolidado |
 | Configuración autónoma | Standalone Setup | Instancia el controlador a mano, sin contexto de Spring ni escaneo de componentes (`RestTestClient.bindToController(...)`); cualquier `@ControllerAdvice` debe registrarse explícitamente porque no hay escaneo que lo descubra |
 | — | Binder | Spring Cloud Stream: adaptador entre el modelo de programación de Spring (`Supplier`/`Function`/`Consumer` como `@Bean`) y la API concreta de un broker (Kafka, RabbitMQ); cambiar de binder es cambiar configuración, no código de negocio. Sin traducción española de uso consolidado |
+| — | Binding | Spring Cloud Stream: conexión configurable entre un bean funcional (`Supplier`/`Function`/`Consumer`) y un destino concreto del broker, nombrada `<bean>-in-<índice>`/`<bean>-out-<índice>`; sin traducción española de uso consolidado |
 | — | Testcontainers | Librería Java que levanta contenedores Docker reales (bases de datos, brokers de mensajería...) solo durante la ejecución de un test, y los destruye al terminar; sin traducción española de uso consolidado |
+| Cola | Queue | En RabbitMQ, almacena los mensajes que un *exchange* le enruta hasta que un consumidor los retira; a diferencia del *exchange* (que no almacena nada), la cola sí persiste el mensaje mientras no se consuma |
+| Origen | Source | Spring Cloud Stream: rol de un `Supplier<T>` como `@Bean` — el binder lo invoca y publica cada valor que devuelve |
+| Procesador | Processor | Spring Cloud Stream: rol de un `Function<T, R>` como `@Bean` — el binder le entrega un mensaje consumido y publica el resultado que devuelve |
+| Destino | Sink | Spring Cloud Stream: rol de un `Consumer<T>` como `@Bean` — el binder le entrega un mensaje consumido y no publica nada a cambio |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.
