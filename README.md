@@ -5,6 +5,7 @@
 [![Neo4j](https://img.shields.io/badge/Neo4j-4581C3?logo=neo4j&logoColor=white)](https://neo4j.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-000000?logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-6BA539?logo=swagger&logoColor=white)](https://swagger.io/specification/)
 [![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![Maven](https://img.shields.io/badge/Maven-Wrapper-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
@@ -38,8 +39,9 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 9 | [`capitulo-09-test-capa-web`](../../tree/capitulo-09-test-capa-web) | Test de la capa web | servicio-catalogo, servicio-pedidos | `MockMvcTester`, `RestTestClient` |
 | 10 | [`capitulo-10-archunit-jmolecules`](../../tree/capitulo-10-archunit-jmolecules) | Disciplina de tests y arquitectura: ArchUnit, jMolecules, Instancio y DataFaker | servicio-catalogo, servicio-pedidos | ArchUnit, jMolecules, Instancio, DataFaker |
 | 11 | [`capitulo-11-mensajeria-asincrona-v2`](../../tree/capitulo-11-mensajeria-asincrona-v2) | Mensajería asíncrona: Spring Cloud Stream con RabbitMQ | servicio-catalogo | Spring Cloud Stream, Binder, exchange/cola de RabbitMQ |
+| 12 | [`capitulo-12-outbox-transaccional`](../../tree/capitulo-12-outbox-transaccional) | Kafka como segundo binder, Outbox transaccional e Inventario | servicio-catalogo, servicio-pedidos, servicio-inventario | Kafka, Outbox transaccional, consumidores idempotentes |
 
-Consulta el [`CHECKLIST.md`](../../blob/capitulo-11-mensajeria-asincrona-v2/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-12-outbox-transaccional/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
@@ -68,7 +70,7 @@ Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-pare
 | [Spring Data Neo4j](../../tree/capitulo-01-fundamentos-ddd-hexagonal) | 8.1.0 | Persistencia en grafo (`servicio-catalogo`) |
 | [Spring Data JPA](../../tree/capitulo-06-servicio-pedidos) | 4.1.0 | Persistencia relacional (`servicio-pedidos`, `servicio-inventario`) |
 | [Flyway](../../tree/capitulo-06-servicio-pedidos) | 12.4.0 | Migraciones de esquema (`servicio-pedidos`, `servicio-inventario`) |
-| [Spring Cloud Stream](../../tree/capitulo-11-mensajeria-asincrona-v2) | 5.0.2 | Mensajería asíncrona, binder RabbitMQ (Kafka como segundo binder en el capítulo 12) |
+| [Spring Cloud Stream](../../tree/capitulo-12-outbox-transaccional) | 5.0.2 | Mensajería asíncrona, binders RabbitMQ y Kafka intercambiables/combinables por *binding* |
 | PostgreSQL JDBC driver | 42.7.11 | Driver de conexión (`servicio-pedidos`) |
 | Docker Compose | — | Entorno de desarrollo local |
 
