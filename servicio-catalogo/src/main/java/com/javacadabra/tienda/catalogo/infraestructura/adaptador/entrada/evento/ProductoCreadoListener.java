@@ -1,16 +1,19 @@
 package com.javacadabra.tienda.catalogo.infraestructura.adaptador.entrada.evento;
 
 import com.javacadabra.tienda.catalogo.dominio.evento.ProductoCreadoEvento;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
+@RequiredArgsConstructor
 public class ProductoCreadoListener {
+
+	private final StreamBridge streamBridge;
 
 	@EventListener
 	public void alCrearProducto(ProductoCreadoEvento evento) {
-		log.info("Producto creado: {}", evento.productoId().valor());
+		streamBridge.send("productoCreado-out-0", evento);
 	}
 }

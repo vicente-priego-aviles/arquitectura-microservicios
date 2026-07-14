@@ -1,3 +1,14 @@
 spring:
   application:
     name: servicio-catalogo
+  cloud:
+    function:
+      definition: productoCreadoConsumidor
+    stream:
+      defaultBinder: kafka
+      bindings:
+        productoCreado-out-0:
+          destination: producto-creado
+        productoCreadoConsumidor-in-0:
+          destination: producto-creado
+          group: servicio-catalogo

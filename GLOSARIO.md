@@ -39,5 +39,7 @@ Documentación interna de desarrollo (como `CLAUDE.md`/`CHECKLIST.md`): no forma
 | — | Jitter | Variación aleatoria añadida a cada espera de un backoff exponencial, para que reintentos que fallaron a la vez no se sincronicen también al reintentar; sin traducción española de uso consolidado |
 | — | Test Slice | Carga solo la porción del contexto de Spring relacionada con una capa concreta (p. ej. `@WebMvcTest` carga solo la infraestructura MVC), sustituyendo el resto de colaboradores por dobles de prueba en vez de arrancar el contexto completo; sin traducción española de uso consolidado |
 | Configuración autónoma | Standalone Setup | Instancia el controlador a mano, sin contexto de Spring ni escaneo de componentes (`RestTestClient.bindToController(...)`); cualquier `@ControllerAdvice` debe registrarse explícitamente porque no hay escaneo que lo descubra |
+| — | Binder | Spring Cloud Stream: adaptador entre el modelo de programación de Spring (`Supplier`/`Function`/`Consumer` como `@Bean`) y la API concreta de un broker (Kafka, RabbitMQ); cambiar de binder es cambiar configuración, no código de negocio. Sin traducción española de uso consolidado |
+| — | Testcontainers | Librería Java que levanta contenedores Docker reales (bases de datos, brokers de mensajería...) solo durante la ejecución de un test, y los destruye al terminar; sin traducción española de uso consolidado |
 
 Ver `CLAUDE.md`, sección "Idioma y lenguaje ubicuo", para cómo se aplica esta convención.
