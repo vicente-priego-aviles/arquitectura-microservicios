@@ -187,6 +187,7 @@ docker compose up -d
 ```
 
 ```bash
+cd ..
 ./mvnw -pl servicio-catalogo spring-boot:run
 ```
 
@@ -217,6 +218,12 @@ El *exchange* `producto-creado` y la cola `producto-creado.servicio-catalogo` (`
 ![Cola producto-creado.servicio-catalogo en el Management UI de RabbitMQ, con 0 mensajes pendientes tras haber sido consumido](docs/images/capitulo-11/rabbitmq-management-colas.png)
 
 *Pestaña "Queues and Streams" del Management UI de RabbitMQ, tras crear un producto por REST: la cola `producto-creado.servicio-catalogo` existe, sin mensajes pendientes porque `servicio-catalogo` ya la consumió.*
+
+La pestaña "Exchanges" muestra el propio exchange `producto-creado`, con su gráfico de tasas de mensajes — aquí, tras crear varios productos seguidos:
+
+![Exchange producto-creado en el Management UI de RabbitMQ, con el gráfico de tasas de publicación (Publish In/Out) subiendo tras crear varios productos](docs/images/capitulo-11/rabbitmq-exchange-tasas.png)
+
+*Pestaña "Exchanges" → `producto-creado`: `Publish (In)` es lo que `StreamBridge` publica en el exchange; `Publish (Out)` es lo que el exchange reenvía a la cola — coinciden porque hay una única cola ligada, sin fan-out a varios grupos.*
 
 Para parar todo:
 
@@ -298,6 +305,7 @@ Para ejecutar este test (y el resto del módulo):
 |  | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|---|
 | 🌱 | [`rabbitmq-management-colas.png`](docs/images/capitulo-11/rabbitmq-management-colas.png) | Captura del Management UI de RabbitMQ, pestaña "Queues and Streams" | --- |
+| 🌱 | [`rabbitmq-exchange-tasas.png`](docs/images/capitulo-11/rabbitmq-exchange-tasas.png) | Captura del Management UI de RabbitMQ, pestaña "Exchanges" (gráfico de tasas de publicación) | --- |
 | 🌱 | [`capitulo-11-mensajeria-arquitectura.excalidraw`](docs/diagramas/capitulo-11-mensajeria-arquitectura.excalidraw) | Diagrama de arquitectura del capítulo | --- |
 | 🌱 | [`arquitectura-mensajeria.png`](docs/images/capitulo-11/arquitectura-mensajeria.png) | Render PNG del diagrama anterior | --- |
 | 🌱 | [`capitulo-11-rabbitmq-exchange-cola.excalidraw`](docs/diagramas/capitulo-11-rabbitmq-exchange-cola.excalidraw) | Diagrama de detalle: enrutado exchange → cola compartida → réplicas del consumidor | --- |
