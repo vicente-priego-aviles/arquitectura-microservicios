@@ -25,12 +25,12 @@ Kafka, RabbitMQ y el resto de brokers de mensajería son tecnologías distintas,
 
 Este capítulo demuestra la mecánica sobre un único binder, **RabbitMQ** — elegido por ser el más sencillo de poner en marcha y de verificar con un test real (ver [sección 3](#3-verificado-con-un-test-de-integración-real-testcontainers--rabbitmq)) —, dentro de `servicio-catalogo`: mismo microservicio publicando y consumiendo su propio evento, para centrarse en cómo se declara un productor y un consumidor con Spring Cloud Stream antes de cruzarlo a otro proceso. El valor real del **Binder** — que ese mismo código funcione también sobre Kafka sin tocar una línea — se demuestra en el [capítulo 12](../../tree/capitulo-12-outbox-transaccional), justo antes de entrar en el caso con consistencia real entre microservicios: `servicio-pedidos` publicando un evento nuevo, `PedidoCreadoEvento`, consumido por un `servicio-inventario` que nace en ese capítulo para reservar/decrementar stock — con los dos problemas que aparecen en cuanto el mensaje cruza a otro proceso con una consecuencia de negocio real detrás (vender más unidades de las que hay): **Outbox transaccional** (Transactional Outbox) e **Idempotencia** (Idempotency).
 
+## 2. Spring Cloud Stream: el productor y el consumidor de `ProductoCreadoEvento`
+
 ![Arquitectura del capítulo: servicio-catalogo publicando y consumiendo ProductoCreadoEvento a través de un topic RabbitMQ, con StreamBridge como productor y un Consumer<T> como consumidor](docs/images/capitulo-11/arquitectura-mensajeria.png)
 
 *`servicio-catalogo` publica `ProductoCreadoEvento` con `StreamBridge` y lo consume con un `Consumer<T>` a través de RabbitMQ — el mismo microservicio a ambos lados, la prueba de que la mecánica funciona antes de cruzarla a otro proceso (y a Kafka) en el capítulo 12.*
 <br>
-
-## 2. Spring Cloud Stream: el productor y el consumidor de `ProductoCreadoEvento`
 
 ### Dependencia y broker local
 
