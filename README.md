@@ -17,7 +17,7 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 >
 > `main` contiene únicamente este índice de capítulos: el código de cada microservicio vive en su propia rama de capítulo. Para explorar o ejecutar un capítulo concreto, haz `git checkout` a la rama correspondiente (p. ej. `git checkout capitulo-07-http-service-client`) — cada una incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
-![Mapa de arquitectura de la tienda Javacadabra: servicio-catalogo (Neo4j) y servicio-pedidos (PostgreSQL) sobre Java/Spring Boot, conectados por HTTP Service Client, con hueco reservado para próximos capítulos](docs/images/mapa-arquitectura-sistema.png)
+![Mapa de arquitectura de la tienda Javacadabra: servicio-catalogo (Neo4j) y servicio-pedidos (PostgreSQL) sobre Java/Spring Boot, conectados por HTTP Service Client; servicio-inventario (PostgreSQL, sin servidor web propio) consumiendo producto-creado vía RabbitMQ y pedido-creado vía Kafka, con hueco reservado para próximos capítulos](docs/images/mapa-arquitectura-sistema.png)
 
 *Mapa de arquitectura del sistema — se amplía capítulo a capítulo a medida que se añaden microservicios y tecnologías nuevas.*
 
