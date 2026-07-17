@@ -38,7 +38,7 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 8 | [`capitulo-08-resiliencia`](../../tree/capitulo-08-resiliencia) | Resiliencia de la llamada síncrona | servicio-pedidos | `@Retryable`, `@ConcurrencyLimit`, Circuit Breaker (Resilience4j) |
 | 9 | [`capitulo-09-test-capa-web`](../../tree/capitulo-09-test-capa-web) | Test de la capa web | servicio-catalogo, servicio-pedidos | `MockMvcTester`, `RestTestClient` |
 | 10 | [`capitulo-10-archunit-jmolecules`](../../tree/capitulo-10-archunit-jmolecules) | Disciplina de tests y arquitectura: ArchUnit, jMolecules, Instancio y DataFaker | servicio-catalogo, servicio-pedidos | ArchUnit, jMolecules, Instancio, DataFaker |
-| 11 | [`capitulo-11-mensajeria-asincrona-v2`](../../tree/capitulo-11-mensajeria-asincrona-v2) | Mensajería asíncrona: Spring Cloud Stream con RabbitMQ | servicio-catalogo | Spring Cloud Stream, Binder, exchange/cola de RabbitMQ |
+| 11 | [`capitulo-11-mensajeria-asincrona`](../../tree/capitulo-11-mensajeria-asincrona) | Mensajería asíncrona: Spring Cloud Stream con RabbitMQ | servicio-catalogo | Spring Cloud Stream, Binder, exchange/cola de RabbitMQ |
 | 12 | [`capitulo-12-outbox-transaccional`](../../tree/capitulo-12-outbox-transaccional) | Kafka como segundo binder, Outbox transaccional e Inventario | servicio-catalogo, servicio-pedidos, servicio-inventario | Kafka, Outbox transaccional, consumidores idempotentes |
 
 Consulta el [`CHECKLIST.md`](../../blob/capitulo-12-outbox-transaccional/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.

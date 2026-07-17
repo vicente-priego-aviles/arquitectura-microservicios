@@ -972,8 +972,8 @@
     {
       "id": "img_docker",
       "type": "image",
-      "x": 900.0,
-      "y": 700,
+      "x": 582,
+      "y": 1170,
       "width": 28,
       "height": 28,
       "angle": 0,
@@ -1007,8 +1007,8 @@
     {
       "id": "label_docker",
       "type": "text",
-      "x": 936.0,
-      "y": 702,
+      "x": 618,
+      "y": 1172,
       "width": 620,
       "height": 22,
       "angle": 0,
@@ -1041,8 +1041,8 @@
     {
       "id": "band_inventario",
       "type": "rectangle",
-      "x": 1630,
-      "y": 220,
+      "x": 960,
+      "y": 700,
       "width": 620,
       "height": 380,
       "angle": 0,
@@ -1071,8 +1071,8 @@
     {
       "id": "header_inventario",
       "type": "text",
-      "x": 1630,
-      "y": 238,
+      "x": 960,
+      "y": 718,
       "width": 620,
       "height": 30,
       "angle": 0,
@@ -1105,8 +1105,8 @@
     {
       "id": "port_inventario",
       "type": "text",
-      "x": 1630,
-      "y": 272,
+      "x": 960,
+      "y": 752,
       "width": 620,
       "height": 20,
       "angle": 0,
@@ -1139,8 +1139,8 @@
     {
       "id": "chip_inventario_bg",
       "type": "rectangle",
-      "x": 2120,
-      "y": 234,
+      "x": 1450,
+      "y": 714,
       "width": 116,
       "height": 32,
       "angle": 0,
@@ -1169,8 +1169,8 @@
     {
       "id": "chip_inventario_text",
       "type": "text",
-      "x": 2120,
-      "y": 240,
+      "x": 1450,
+      "y": 720,
       "width": 116,
       "height": 20,
       "angle": 0,
@@ -1203,8 +1203,8 @@
     {
       "id": "img_postgresql_inventario",
       "type": "image",
-      "x": 1908.0,
-      "y": 350,
+      "x": 1238.0,
+      "y": 830,
       "width": 64,
       "height": 64,
       "angle": 0,
@@ -1238,8 +1238,8 @@
     {
       "id": "label_postgresql_inventario",
       "type": "text",
-      "x": 1630,
-      "y": 425,
+      "x": 960,
+      "y": 905,
       "width": 620,
       "height": 26,
       "angle": 0,
@@ -1272,8 +1272,8 @@
     {
       "id": "label_postgresql_inventario_desc",
       "type": "text",
-      "x": 1630,
-      "y": 452,
+      "x": 960,
+      "y": 932,
       "width": 620,
       "height": 20,
       "angle": 0,
@@ -1296,7 +1296,7 @@
       "updated": 1783984048202,
       "link": null,
       "locked": false,
-      "text": "Stock e idempotencia (eventos_procesados)",
+      "text": "Stock e idempotencia (pedidos_procesados)",
       "fontSize": 13,
       "fontFamily": 1,
       "textAlign": "center",
@@ -1306,8 +1306,8 @@
     {
       "id": "label_inventario_api",
       "type": "text",
-      "x": 1650,
-      "y": 520,
+      "x": 980,
+      "y": 1000,
       "width": 580,
       "height": 40,
       "angle": 0,
@@ -1340,10 +1340,10 @@
     {
       "id": "arrow_kafka",
       "type": "arrow",
-      "x": 1580,
-      "y": 460,
-      "width": 50,
-      "height": 0,
+      "x": 1270,
+      "y": 600,
+      "width": 0,
+      "height": 100,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -1372,8 +1372,8 @@
           0
         ],
         [
-          50,
-          0
+          0,
+          100
         ]
       ],
       "startBinding": null,
@@ -1384,8 +1384,8 @@
     {
       "id": "label_kafka_1",
       "type": "text",
-      "x": 1420,
-      "y": 420,
+      "x": 1290,
+      "y": 630,
       "width": 210,
       "height": 20,
       "angle": 0,
@@ -1418,8 +1418,8 @@
     {
       "id": "label_kafka_2",
       "type": "text",
-      "x": 1420,
-      "y": 440,
+      "x": 1290,
+      "y": 650,
       "width": 210,
       "height": 18,
       "angle": 0,
@@ -1452,10 +1452,10 @@
     {
       "id": "arrow_rabbitmq",
       "type": "arrow",
-      "x": 370,
+      "x": 650,
       "y": 600,
-      "width": 1570,
-      "height": 50,
+      "width": 620,
+      "height": 520,
       "angle": 0,
       "strokeColor": "#f08c00",
       "backgroundColor": "transparent",
@@ -1483,15 +1483,15 @@
         ],
         [
           0,
-          50
+          520
         ],
         [
-          1570,
-          50
+          620,
+          520
         ],
         [
-          1570,
-          0
+          620,
+          480
         ]
       ],
       "lastCommittedPoint": null,
@@ -1503,8 +1503,8 @@
     {
       "id": "label_rabbitmq",
       "type": "text",
-      "x": 925,
-      "y": 655,
+      "x": 730,
+      "y": 1125,
       "width": 460,
       "height": 20,
       "angle": 0,
@@ -1537,8 +1537,8 @@
     {
       "id": "band_futuro",
       "type": "rectangle",
-      "x": 2300,
-      "y": 220,
+      "x": 220,
+      "y": 700,
       "width": 300,
       "height": 380,
       "angle": 0,
@@ -1567,8 +1567,8 @@
     {
       "id": "header_futuro",
       "type": "text",
-      "x": 2300,
-      "y": 370.0,
+      "x": 220,
+      "y": 850.0,
       "width": 300,
       "height": 60,
       "angle": 0,
@@ -1601,8 +1601,8 @@
     {
       "id": "label_futuro_plus",
       "type": "text",
-      "x": 2300,
-      "y": 430.0,
+      "x": 220,
+      "y": 910.0,
       "width": 300,
       "height": 40,
       "angle": 0,
