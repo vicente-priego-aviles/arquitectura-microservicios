@@ -71,7 +71,7 @@ Versiones sin propiedad propia: las resuelve el BOM de `spring-boot-starter-pare
 | [Spring Data JPA](../../tree/capitulo-06-servicio-pedidos) | 4.1.0 | Persistencia relacional (`servicio-pedidos`, `servicio-inventario`) |
 | [Flyway](../../tree/capitulo-06-servicio-pedidos) | 12.4.0 | Migraciones de esquema (`servicio-pedidos`, `servicio-inventario`) |
 | [Spring Cloud Stream](../../tree/capitulo-12-outbox-transaccional) | 5.0.2 | Mensajería asíncrona, binders RabbitMQ y Kafka intercambiables/combinables por *binding* |
-| PostgreSQL JDBC driver | 42.7.11 | Driver de conexión (`servicio-pedidos`) |
+| PostgreSQL JDBC driver | 42.7.11 | Driver de conexión (`servicio-pedidos`, `servicio-inventario`) |
 | Docker Compose | — | Entorno de desarrollo local |
 
 Ver [CLAUDE.md](CLAUDE.md) para la guía completa de convenciones (idioma, arquitectura, modelo de ramas).
