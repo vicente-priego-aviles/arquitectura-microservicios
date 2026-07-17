@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "eventos_procesados")
+@Table(name = "pedidos_procesados")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class EventoProcesadoEntidad {
+public class PedidoProcesadoEntidad {
 
 	@Id
 	private String pedidoId;

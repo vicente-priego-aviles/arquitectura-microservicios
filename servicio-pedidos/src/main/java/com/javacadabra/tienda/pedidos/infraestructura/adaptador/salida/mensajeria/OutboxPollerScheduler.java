@@ -30,8 +30,7 @@ public class OutboxPollerScheduler {
 			streamBridge.send("pedidoCreado-out-0", MessageBuilder.withPayload(evento.getPayload())
 					.setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON)
 					.build());
-			outboxEventoRepositorioJpa.save(new OutboxEventoEntidad(
-					evento.getId(), evento.getTipoEvento(), evento.getPayload(), evento.getOcurridoEn(), true));
+			evento.marcarPublicado();
 			log.info("Evento outbox {} publicado en pedido-creado", evento.getId());
 		}
 	}

@@ -2,7 +2,7 @@ package com.javacadabra.tienda.inventario.aplicacion.servicio;
 
 import com.javacadabra.tienda.inventario.aplicacion.dto.entrada.LineaReservaDTO;
 import com.javacadabra.tienda.inventario.aplicacion.puerto.entrada.ReservarStockPuertoEntrada;
-import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.EventoProcesadoPuertoSalida;
+import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.PedidoProcesadoPuertoSalida;
 import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.StockRepositorioPuertoSalida;
 import com.javacadabra.tienda.inventario.dominio.excepcion.StockNoEncontradoException;
 import com.javacadabra.tienda.inventario.dominio.modelo.agregado.Stock;
@@ -20,12 +20,12 @@ import java.util.List;
 public class ReservarStockServicio implements ReservarStockPuertoEntrada {
 
 	private final StockRepositorioPuertoSalida stockRepositorioPuertoSalida;
-	private final EventoProcesadoPuertoSalida eventoProcesadoPuertoSalida;
+	private final PedidoProcesadoPuertoSalida pedidoProcesadoPuertoSalida;
 
 	@Override
 	@Transactional
 	public void reservar(String pedidoId, List<LineaReservaDTO> lineas) {
-		if (eventoProcesadoPuertoSalida.yaProcesado(pedidoId)) {
+		if (pedidoProcesadoPuertoSalida.yaProcesado(pedidoId)) {
 			log.info("Pedido {} ya procesado, se descarta el duplicado", pedidoId);
 			return;
 		}
@@ -36,6 +36,6 @@ public class ReservarStockServicio implements ReservarStockPuertoEntrada {
 			stock.decrementar(linea.cantidad());
 			stockRepositorioPuertoSalida.guardar(stock);
 		});
-		eventoProcesadoPuertoSalida.marcarProcesado(pedidoId);
+		pedidoProcesadoPuertoSalida.marcarProcesado(pedidoId);
 	}
 }

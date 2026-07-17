@@ -79,7 +79,7 @@ Descartados por forzados para este dominio o sin desarrollo futuro: Spring for A
 
 ## Consistencia entre microservicios
 - [x] Outbox transaccional (capítulo 12) — tabla `outbox_evento` + `TransactionTemplate` (`CrearPedidoServicio`, acotado solo a las escrituras, sin envolver las llamadas HTTP previas a catálogo) + `OutboxPollerScheduler` (`@Scheduled` cada 2 s, `@Transactional` solo sobre Postgres) que publica en Kafka los eventos pendientes, `servicio-pedidos` → `servicio-inventario`
-- [x] Consumidores idempotentes (capítulo 12) — deduplicación por `pedidoId` en `eventos_procesados` (`ReservarStockServicio`, `@Transactional`), verificada con una redelivery real forzada a mano (no solo con mocks)
+- [x] Consumidores idempotentes (capítulo 12) — deduplicación por `pedidoId` en `pedidos_procesados` (`ReservarStockServicio`, `@Transactional`), verificada con una redelivery real forzada a mano (no solo con mocks)
 - [ ] Patrón Saga (orquestación o coreografía, a decidir cuando haya al menos dos microservicios con transacción compartida — candidato natural: Pedidos + Pagos + Inventario)
 - [ ] Métodos de compensación por cada paso de la Saga (deshacer lo ya confirmado si un paso posterior falla)
 

@@ -3,7 +3,7 @@ CREATE TABLE stock (
     cantidad    INTEGER     NOT NULL
 );
 
-CREATE TABLE eventos_procesados (
+CREATE TABLE pedidos_procesados (
     pedido_id    VARCHAR(36) PRIMARY KEY,
     procesado_en TIMESTAMP WITH TIME ZONE NOT NULL
 );

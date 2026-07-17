@@ -1,7 +1,7 @@
 package com.javacadabra.tienda.inventario.aplicacion.servicio;
 
 import com.javacadabra.tienda.inventario.aplicacion.dto.entrada.LineaReservaDTO;
-import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.EventoProcesadoPuertoSalida;
+import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.PedidoProcesadoPuertoSalida;
 import com.javacadabra.tienda.inventario.aplicacion.puerto.salida.StockRepositorioPuertoSalida;
 import com.javacadabra.tienda.inventario.dominio.excepcion.StockInsuficienteException;
 import com.javacadabra.tienda.inventario.dominio.modelo.agregado.Stock;
@@ -29,42 +29,42 @@ class ReservarStockServicioTest {
 	private StockRepositorioPuertoSalida stockRepositorioPuertoSalida;
 
 	@Mock
-	private EventoProcesadoPuertoSalida eventoProcesadoPuertoSalida;
+	private PedidoProcesadoPuertoSalida pedidoProcesadoPuertoSalida;
 
 	@Test
 	void reservarDecrementaElStockDeCadaLineaYMarcaElPedidoComoProcesado() {
 		String productoId = UUID.randomUUID().toString();
-		when(eventoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(false);
+		when(pedidoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(false);
 		when(stockRepositorioPuertoSalida.buscarPorProductoId(any()))
 				.thenReturn(Optional.of(Stock.crear(ProductoId.de(productoId), Cantidad.de(10))));
 
-		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, eventoProcesadoPuertoSalida);
+		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, pedidoProcesadoPuertoSalida);
 		String pedidoId = UUID.randomUUID().toString();
 		servicio.reservar(pedidoId, List.of(new LineaReservaDTO(productoId, 4)));
 
 		verify(stockRepositorioPuertoSalida).guardar(any());
-		verify(eventoProcesadoPuertoSalida).marcarProcesado(pedidoId);
+		verify(pedidoProcesadoPuertoSalida).marcarProcesado(pedidoId);
 	}
 
 	@Test
 	void reservarUnPedidoYaProcesadoNoTocaElStock() {
-		when(eventoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(true);
+		when(pedidoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(true);
 
-		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, eventoProcesadoPuertoSalida);
+		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, pedidoProcesadoPuertoSalida);
 		servicio.reservar(UUID.randomUUID().toString(), List.of(new LineaReservaDTO(UUID.randomUUID().toString(), 1)));
 
 		verify(stockRepositorioPuertoSalida, never()).guardar(any());
-		verify(eventoProcesadoPuertoSalida, never()).marcarProcesado(any());
+		verify(pedidoProcesadoPuertoSalida, never()).marcarProcesado(any());
 	}
 
 	@Test
 	void reservarMasCantidadDeLaDisponibleLanzaExcepcion() {
 		String productoId = UUID.randomUUID().toString();
-		when(eventoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(false);
+		when(pedidoProcesadoPuertoSalida.yaProcesado(any())).thenReturn(false);
 		when(stockRepositorioPuertoSalida.buscarPorProductoId(any()))
 				.thenReturn(Optional.of(Stock.crear(ProductoId.de(productoId), Cantidad.de(2))));
 
-		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, eventoProcesadoPuertoSalida);
+		var servicio = new ReservarStockServicio(stockRepositorioPuertoSalida, pedidoProcesadoPuertoSalida);
 
 		assertThatThrownBy(() -> servicio.reservar(UUID.randomUUID().toString(), List.of(new LineaReservaDTO(productoId, 5))))
 				.isInstanceOf(StockInsuficienteException.class);

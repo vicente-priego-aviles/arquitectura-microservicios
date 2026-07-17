@@ -26,4 +26,8 @@ public class OutboxEventoEntidad {
 	private String payload;
 	private Instant ocurridoEn;
 	private boolean publicado;
+
+	public void marcarPublicado() {
+		this.publicado = true;
+	}
 }
