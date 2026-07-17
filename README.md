@@ -1,6 +1,6 @@
 # Capítulo 12 — Kafka, Outbox transaccional e Inventario
 
-Duodécimo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-11-mensajeria-asincrona-v2`.
+Duodécimo capítulo del tutorial "De cero a pro en arquitectura de microservicios con Spring Boot" (ver el índice completo de capítulos en la rama `main`). Parte directamente de `capitulo-11-mensajeria-asincrona`.
 
 ## Índice
 
@@ -103,7 +103,7 @@ Ese mismo `compose.yaml` raíz añade **Kafka UI** (interfaz web para explorar *
 
 ### Cambiar de binder: RabbitMQ → Kafka, sin tocar código
 
-Con dos binders en el *classpath*, Spring Cloud Stream ya no puede elegir uno por sí solo — arranca con un error hasta que se resuelve explícitamente con `spring.cloud.stream.defaultBinder`, tal como ya anticipaba la nota de la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2). El comportamiento por defecto no cambia — sigue siendo RabbitMQ:
+Con dos binders en el *classpath*, Spring Cloud Stream ya no puede elegir uno por sí solo — arranca con un error hasta que se resuelve explícitamente con `spring.cloud.stream.defaultBinder`, tal como ya anticipaba la nota de la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona). El comportamiento por defecto no cambia — sigue siendo RabbitMQ:
 
 ```yaml
 # servicio-catalogo/application.yml
@@ -167,7 +167,7 @@ Esta demostración queda aislada del resto del capítulo: el perfil `kafka` exis
 
 > **Si `producto-creado` viaja igual por los dos, ¿en qué se diferencian realmente un *exchange* de RabbitMQ y un *topic* de Kafka?**
 >
-> No son el mismo concepto con dos nombres distintos, aunque `destination`/`group` los traten de forma parecida. El *exchange* de RabbitMQ enruta pero no almacena — es la cola la que guarda el mensaje hasta que se consume (ver la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2)). Kafka no tiene esa capa de enrutado intermedia: un productor escribe directamente a un *topic* con nombre, y es el propio *topic* el que almacena — no una pieza aparte.
+> No son el mismo concepto con dos nombres distintos, aunque `destination`/`group` los traten de forma parecida. El *exchange* de RabbitMQ enruta pero no almacena — es la cola la que guarda el mensaje hasta que se consume (ver la [sección 2 del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona)). Kafka no tiene esa capa de enrutado intermedia: un productor escribe directamente a un *topic* con nombre, y es el propio *topic* el que almacena — no una pieza aparte.
 >
 > Tampoco almacenan igual. La cola clásica de RabbitMQ (la del capítulo 11) borra el mensaje en cuanto se consume y confirma; el *topic* de Kafka es un log de solo-anexar que **no** lo borra — cada consumidor lee a su propio ritmo llevando la cuenta de por dónde va (su *offset*), y el mensaje sigue ahí para quien vuelva a leerlo o para un consumidor nuevo que empiece desde el principio. Lo más parecido a un *topic* de Kafka dentro de RabbitMQ no es la cola clásica ni el *exchange* — es **RabbitMQ Streams**, una función aparte que este tutorial no usa.
 >
@@ -498,7 +498,7 @@ curl -X POST http://localhost:8081/api/pedidos \
 
 El resultado se comprueba en tres sitios:
 
-- **El Management UI de RabbitMQ** (`http://localhost:15672`, `guest`/`guest`, ver la [sección "El consumidor" del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona-v2)): pestaña "Queues and Streams", ahora con **dos** colas sobre el mismo *exchange* `producto-creado` — `producto-creado.servicio-catalogo` (capítulo 11) y `producto-creado.servicio-inventario` (nueva en este capítulo) —, la prueba visual de que dos grupos distintos reciben cada uno su propia copia del mismo mensaje.
+- **El Management UI de RabbitMQ** (`http://localhost:15672`, `guest`/`guest`, ver la [sección "El consumidor" del capítulo 11](../../tree/capitulo-11-mensajeria-asincrona)): pestaña "Queues and Streams", ahora con **dos** colas sobre el mismo *exchange* `producto-creado` — `producto-creado.servicio-catalogo` (capítulo 11) y `producto-creado.servicio-inventario` (nueva en este capítulo) —, la prueba visual de que dos grupos distintos reciben cada uno su propia copia del mismo mensaje.
 - **Kafbat UI** (`http://localhost:8090`, ver [sección 2](#2-kafka-como-segundo-binder)): pestaña *Messages* del *topic* `pedido-creado`, con el *payload* JSON real del evento.
 - **La base de datos de `servicio-inventario`** directamente:
 
