@@ -369,14 +369,14 @@ Localiza ambos procesos por nombre y los para de una vez, sin depender de en qu�
 | 🌱 | [`docs/images/capitulo-07/secuencia-crear-pedido.png`](docs/images/capitulo-07/secuencia-crear-pedido.png) | Render del diagrama anterior, embebido en la [sección 1](#1-introducción) | --- |
 | 🌱 | [`docs/images/capitulo-07/swagger-ui-crear-pedido-404.png`](docs/images/capitulo-07/swagger-ui-crear-pedido-404.png) | Captura de Swagger UI del endpoint `POST /api/pedidos` con la respuesta `404` documentada ([sección 8](#8-cómo-probarlo)) | --- |
 
-### Dominio
+### Build y configuración
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
 | ✏️ | [`servicio-pedidos/pom.xml`](servicio-pedidos/pom.xml) | Dependencias Maven de `servicio-pedidos` | Añadida `spring-boot-starter-restclient` — la autoconfiguración del cliente HTTP no la trae `-webmvc` (ver [sección 6](#6-registrar-el-cliente-importhttpservices-y-la-url-base-por-configuración)) |
 | ✏️ | [`servicio-pedidos/src/main/resources/application.yml`](servicio-pedidos/src/main/resources/application.yml) | Configuración de `servicio-pedidos` | Añadida `spring.http.serviceclient.catalogo.base-url`, la URL base del cliente HTTP hacia `servicio-catalogo` |
 
-### Infraestructura de entrada
+### Aplicación
 
 | | Archivo | Descripción funcional | Descripción del cambio |
 |:---:|---|---|:---:|
