@@ -29,7 +29,7 @@ Spring Boot 4 ofrece dos APIs para cerrar ese hueco, ambas construidas sobre la 
 
 Este capítulo demuestra ambas sobre los mismos endpoints de `ProductoController` para que se puedan comparar directamente, y luego dedica una sección aparte a las cuatro formas de vincular `RestTestClient` a un servidor — desde la más aislada (sin contexto de Spring) hasta la más realista (servidor HTTP real de punta a punta).
 
-De paso, con dos microservicios ya repitiendo el mismo patrón de anotaciones Swagger en sus controllers, aprovechamos para extraerlas a una interfaz propia que el controller se limita a implementar — una limpieza pequeña, pero que vale la pena hacer ahora que el patrón se repite por segunda vez.
+---
 
 ## 2. `@WebMvcTest` y `MockMvcTester`: el Test Slice web
 
