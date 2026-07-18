@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-@SpringBootTest(properties = "outbox.poller.enabled=false")
+@SpringBootTest(properties = {"outbox.poller.enabled=false", "spring.cloud.function.definition="})
 @Testcontainers
 class CatalogoAdaptadorResilienciaTest {
 

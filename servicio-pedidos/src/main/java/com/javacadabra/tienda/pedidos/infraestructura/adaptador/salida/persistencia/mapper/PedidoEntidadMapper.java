@@ -3,6 +3,7 @@ package com.javacadabra.tienda.pedidos.infraestructura.adaptador.salida.persiste
 import com.javacadabra.tienda.pedidos.dominio.modelo.agregado.Pedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.EstadoPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.LineaPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.PedidoId;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
@@ -22,7 +23,8 @@ public interface PedidoEntidadMapper {
 		if (pedido == null) {
 			return null;
 		}
-		PedidoEntidad entidad = new PedidoEntidad(pedido.id().valor(), pedido.clienteId().valor(), pedido.fechaCreacion(), new ArrayList<>());
+		PedidoEntidad entidad = new PedidoEntidad(pedido.id().valor(), pedido.clienteId().valor(), pedido.fechaCreacion(),
+				pedido.estado().name(), pedido.motivoCancelacion(), new ArrayList<>());
 		List<LineaPedidoEntidad> lineas = pedido.lineas().stream()
 				.map(linea -> new LineaPedidoEntidad(null, linea.productoId().valor(), linea.cantidad().valor(), linea.precioUnitario().valor(), entidad))
 				.toList();
@@ -35,7 +37,8 @@ public interface PedidoEntidadMapper {
 			return null;
 		}
 		List<LineaPedido> lineas = entidad.getLineas().stream().map(this::aDominio).toList();
-		return Pedido.reconstruir(PedidoId.de(entidad.getId()), ClienteId.de(entidad.getClienteId()), lineas, entidad.getFechaCreacion());
+		return Pedido.reconstruir(PedidoId.de(entidad.getId()), ClienteId.de(entidad.getClienteId()), lineas, entidad.getFechaCreacion(),
+				EstadoPedido.valueOf(entidad.getEstado()), entidad.getMotivoCancelacion());
 	}
 
 	default LineaPedido aDominio(LineaPedidoEntidad entidad) {

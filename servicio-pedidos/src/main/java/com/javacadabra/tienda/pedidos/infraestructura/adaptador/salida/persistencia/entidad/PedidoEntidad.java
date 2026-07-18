@@ -24,6 +24,8 @@ public class PedidoEntidad {
 
 	private String clienteId;
 	private Instant fechaCreacion;
+	private String estado;
+	private String motivoCancelacion;
 
 	@OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<LineaPedidoEntidad> lineas;

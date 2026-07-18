@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "outbox.poller.enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = {"outbox.poller.enabled=false", "spring.cloud.function.definition="})
 @AutoConfigureRestTestClient
 @Testcontainers
 class PedidoControllerRestTestClientIntegrationTest {

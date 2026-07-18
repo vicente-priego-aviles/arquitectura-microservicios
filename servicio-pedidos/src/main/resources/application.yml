@@ -13,10 +13,18 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
   cloud:
+    function:
+      definition: stockReservadoConsumidor;reservaStockRechazadaConsumidor
     stream:
       bindings:
         pedidoCreado-out-0:
           destination: pedido-creado
+        stockReservadoConsumidor-in-0:
+          destination: stock-reservado
+          group: servicio-pedidos
+        reservaStockRechazadaConsumidor-in-0:
+          destination: reserva-stock-rechazada
+          group: servicio-pedidos
 
 resilience4j:
   circuitbreaker:

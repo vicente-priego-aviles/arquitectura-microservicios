@@ -21,3 +21,9 @@ spring:
           destination: pedido-creado
           group: servicio-inventario
           binder: kafka
+        stockReservado-out-0:
+          destination: stock-reservado
+          binder: kafka
+        reservaStockRechazada-out-0:
+          destination: reserva-stock-rechazada
+          binder: kafka
