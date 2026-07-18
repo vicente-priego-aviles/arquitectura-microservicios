@@ -40,8 +40,13 @@ De cero a pro en arquitectura de microservicios con Spring Boot — una tienda o
 | 10 | [`capitulo-10-archunit-jmolecules`](../../tree/capitulo-10-archunit-jmolecules) | Disciplina de tests y arquitectura: ArchUnit, jMolecules, Instancio y DataFaker | servicio-catalogo, servicio-pedidos | ArchUnit, jMolecules, Instancio, DataFaker |
 | 11 | [`capitulo-11-mensajeria-asincrona`](../../tree/capitulo-11-mensajeria-asincrona) | Mensajería asíncrona: Spring Cloud Stream con RabbitMQ | servicio-catalogo | Spring Cloud Stream, Binder, exchange/cola de RabbitMQ |
 | 12 | [`capitulo-12-outbox-transaccional`](../../tree/capitulo-12-outbox-transaccional) | Kafka como segundo binder, Outbox transaccional e Inventario | servicio-catalogo, servicio-pedidos, servicio-inventario | Kafka, Outbox transaccional, consumidores idempotentes |
+| 13 | [`capitulo-13-saga-coreografiada`](../../tree/capitulo-13-saga-coreografiada) | Patrón Saga coreografiada | servicio-pedidos, servicio-inventario | Saga coreografiada, eventos de resultado, compensación |
 
-Consulta el [`CHECKLIST.md`](../../blob/capitulo-12-outbox-transaccional/CHECKLIST.md) de la rama del último capítulo para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
+> **¿Por qué el capítulo 13 no tiene un capítulo 14 encadenado?**
+>
+> El capítulo 13 resuelve el fallo de `reservar(...)` con una Saga **coreografiada**: cada microservicio reacciona a los eventos de los demás, sin un coordinador central. Es una de dos implementaciones alternativas para el mismo problema — la otra, una Saga **orquestada**, llegará en un capítulo futuro partiendo directamente de `capitulo-12-outbox-transaccional`, no de este, para poder comparar ambos mecanismos sobre la misma base sin que uno arrastre al otro. El capítulo 13 queda así como una rama hoja, de solo comparación.
+
+Consulta el [`CHECKLIST.md`](../../blob/capitulo-12-outbox-transaccional/CHECKLIST.md) de la rama del último capítulo (de la cadena que sigue acumulándose) para ver el detalle de tecnologías cubiertas y pendientes. Cada rama de capítulo incluye su propio `README.md` con las decisiones de diseño tomadas y cómo probarlo.
 
 ## Stack tecnológico
 
