@@ -195,7 +195,13 @@ Dos motivos para esta decisión, no solo uno:
 
 Nótese que `buscarRecomendados` también trae la relación `PERTENECE_A` de cada producto recomendado (`collect(r), collect(c)`) — porque el agregado `Producto` exige un `categoriaId` no nulo ([sección 3](#3-referenciar-otro-agregado-categoriaid-no-categoria)), así que **cualquier** query Cypher que reconstruya un `Producto` tiene que traer también su relación con la categoría, o el mapeo fallaría. Es el mismo patrón `RETURN nodo, collect(relación), collect(nodoRelacionado)` que recomienda la documentación oficial de Spring Data Neo4j para poblar relaciones en consultas custom, aplicado a que la reconstrucción del agregado no rompa su propia invariante.
 
-`agregarRecomendacion` es una escritura (`MERGE`) sin necesidad de `@Transactional` explícito: Spring Data Neo4j asume que un método de repositorio es de escritura salvo que se marque `readOnly = true` — por eso las dos consultas de lectura sí lo llevan (buena práctica, no requisito de corrección) y la de escritura no.
+> **¿Por qué `agregarRecomendacion` no lleva `@Transactional`, si es una escritura?**
+>
+> No porque Spring Data Neo4j la trate como transaccional por defecto — es justo lo contrario: un método que se declara en la interfaz del repositorio, ya sea con `@Query` o por nombre derivado (`findBy...`), no hereda ninguna configuración transaccional, ni de lectura ni de escritura. Eso solo lo hacen los métodos heredados de `Neo4jRepository` sin overridear (`findById`, `save`...), cuya implementación (`SimpleNeo4jRepository`) sí lleva `@Transactional` de fábrica.
+>
+> `buscarPorCategoriaId` y `buscarRecomendados` llevan `@Transactional(readOnly = true)` directamente sobre el método del repositorio porque cada una es la única llamada al repositorio de su caso de uso — el límite transaccional coincide exactamente con esa consulta, y anotarla ahí la protege venga de donde venga la llamada.
+>
+> `agregarRecomendacion` es distinta: en `RecomendarProductoServicio.recomendar()` conviven dos lecturas, una validación de dominio y esta escritura — varias llamadas que solo tienen sentido como una sola unidad de trabajo. Ese límite solo lo puede fijar quien las orquesta, así que `@Transactional` va en `recomendar()`, el servicio de aplicación, no en el método del repositorio.
 
 ---
 

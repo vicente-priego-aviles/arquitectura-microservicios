@@ -8,6 +8,7 @@ import com.javacadabra.tienda.catalogo.dominio.modelo.agregado.Producto;
 import com.javacadabra.tienda.catalogo.dominio.modelo.objetovalor.ProductoId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +17,7 @@ public class RecomendarProductoServicio implements RecomendarProductoPuertoEntra
 	private final ProductoRepositorioPuertoSalida productoRepositorioPuertoSalida;
 
 	@Override
+	@Transactional
 	public void recomendar(String productoId, RecomendarProductoDTO dto) {
 		ProductoId id = ProductoId.de(productoId);
 		ProductoId recomendadoId = ProductoId.de(dto.productoRecomendadoId());
