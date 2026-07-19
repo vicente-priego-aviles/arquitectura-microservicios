@@ -2,6 +2,7 @@ package com.javacadabra.tienda.pedidos.dominio.modelo.agregado;
 
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Cantidad;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ClienteId;
+import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.EstadoPedido;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.Precio;
 import com.javacadabra.tienda.pedidos.dominio.modelo.objetovalor.ProductoId;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ class PedidoTest {
 		assertThat(pedido.id()).isNotNull();
 		assertThat(pedido.clienteId()).isNotNull();
 		assertThat(pedido.lineas()).isEmpty();
+		assertThat(pedido.estado()).isEqualTo(EstadoPedido.PENDIENTE_CONFIRMACION);
 	}
 
 	@Test
@@ -65,8 +67,38 @@ class PedidoTest {
 	@Test
 	void dosPedidosConElMismoIdSonIguales() {
 		Pedido pedido = Pedido.crear(ClienteId.de(UUID.randomUUID().toString()));
-		Pedido reconstruido = Pedido.reconstruir(pedido.id(), pedido.clienteId(), pedido.lineas(), pedido.fechaCreacion());
+		Pedido reconstruido = Pedido.reconstruir(pedido.id(), pedido.clienteId(), pedido.lineas(), pedido.fechaCreacion(),
+				pedido.estado(), pedido.motivoCancelacion());
 
 		assertThat(pedido).isEqualTo(reconstruido);
+	}
+
+	@Test
+	void confirmarUnPedidoPendienteLoDejaConfirmado() {
+		Pedido pedido = Pedido.crear(ClienteId.de(UUID.randomUUID().toString()));
+
+		pedido.confirmar();
+
+		assertThat(pedido.estado()).isEqualTo(EstadoPedido.CONFIRMADO);
+	}
+
+	@Test
+	void cancelarUnPedidoPendienteLoDejaCanceladoConElMotivo() {
+		Pedido pedido = Pedido.crear(ClienteId.de(UUID.randomUUID().toString()));
+
+		pedido.cancelar("Stock insuficiente");
+
+		assertThat(pedido.estado()).isEqualTo(EstadoPedido.CANCELADO);
+		assertThat(pedido.motivoCancelacion()).isEqualTo("Stock insuficiente");
+	}
+
+	@Test
+	void cancelarUnPedidoYaCanceladoNoSobreescribeElMotivoOriginal() {
+		Pedido pedido = Pedido.crear(ClienteId.de(UUID.randomUUID().toString()));
+
+		pedido.cancelar("Stock insuficiente");
+		pedido.cancelar("Motivo de una redelivery distinta");
+
+		assertThat(pedido.motivoCancelacion()).isEqualTo("Stock insuficiente");
 	}
 }

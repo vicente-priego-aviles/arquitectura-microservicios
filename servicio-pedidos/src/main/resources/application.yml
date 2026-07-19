@@ -10,13 +10,10 @@ spring:
         base-url: "http://localhost:8080"
         connect-timeout: 1s
         read-timeout: 2s
-  kafka:
-    bootstrap-servers: localhost:9092
-  cloud:
-    stream:
-      bindings:
-        pedidoCreado-out-0:
-          destination: pedido-creado
+      inventario:
+        base-url: "http://localhost:8082"
+        connect-timeout: 1s
+        read-timeout: 2s
 
 resilience4j:
   circuitbreaker:

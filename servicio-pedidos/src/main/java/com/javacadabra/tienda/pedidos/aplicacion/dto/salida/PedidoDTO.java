@@ -4,5 +4,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-public record PedidoDTO(String id, String clienteId, List<LineaPedidoDTO> lineas, BigDecimal total, Instant fechaCreacion) {
+public record PedidoDTO(String id, String clienteId, List<LineaPedidoDTO> lineas, BigDecimal total, Instant fechaCreacion,
+		String estado, String motivoCancelacion) {
 }

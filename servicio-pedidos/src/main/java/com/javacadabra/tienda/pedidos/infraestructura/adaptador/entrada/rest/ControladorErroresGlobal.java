@@ -18,6 +18,7 @@ public class ControladorErroresGlobal {
 	private static final URI TIPO_ARGUMENTO_INVALIDO = URI.create("https://tienda.javacadabra.com/problemas/argumento-invalido");
 	private static final URI TIPO_CATALOGO_SATURADO = URI.create("https://tienda.javacadabra.com/problemas/catalogo-saturado");
 	private static final URI TIPO_CATALOGO_NO_DISPONIBLE = URI.create("https://tienda.javacadabra.com/problemas/catalogo-no-disponible");
+	private static final URI TIPO_SERVICIO_EXTERNO_NO_DISPONIBLE = URI.create("https://tienda.javacadabra.com/problemas/servicio-externo-no-disponible");
 
 	@ExceptionHandler(ProductoInexistenteException.class)
 	public ProblemDetail manejarProductoInexistente(ProductoInexistenteException excepcion) {
@@ -54,12 +55,15 @@ public class ControladorErroresGlobal {
 		return problema;
 	}
 
+	// Compartido entre catálogo (con reintentos, capítulo 8) e inventario (sin reintentos, capítulo 14):
+	// Spring lanza este mismo tipo ante cualquier fallo de E/S, sin distinguir a qué servicio pertenecía
+	// la llamada — de ahí que el mensaje ya no pueda nombrar a uno de los dos en concreto.
 	@ExceptionHandler(ResourceAccessException.class)
-	public ProblemDetail manejarCatalogoNoDisponiblePorFallosRepetidos(ResourceAccessException excepcion) {
+	public ProblemDetail manejarServicioExternoNoDisponible(ResourceAccessException excepcion) {
 		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
-				"El catálogo no responde tras agotar los reintentos");
-		problema.setType(TIPO_CATALOGO_NO_DISPONIBLE);
-		problema.setTitle("Catálogo no disponible");
+				"Un servicio del que depende esta petición no responde");
+		problema.setType(TIPO_SERVICIO_EXTERNO_NO_DISPONIBLE);
+		problema.setTitle("Servicio externo no disponible");
 		return problema;
 	}
 }

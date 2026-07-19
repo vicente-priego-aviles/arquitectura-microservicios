@@ -11,7 +11,7 @@
 
 	<artifactId>servicio-inventario</artifactId>
 	<name>Servicio de Inventario</name>
-	<description>Reserva de stock por evento — sin API REST propia, solo mensajería (capítulo 12)</description>
+	<description>Reserva de stock: comando síncrono vía REST (capítulo 14) y alta desde eventos de catálogo (capítulo 12)</description>
 
 	<dependencies>
 		<dependency>
@@ -19,8 +19,8 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-stream-binder-kafka</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
@@ -68,6 +68,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

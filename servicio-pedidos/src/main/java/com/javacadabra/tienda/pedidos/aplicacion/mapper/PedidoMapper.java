@@ -19,7 +19,9 @@ public interface PedidoMapper {
 				pedido.clienteId().valor(),
 				pedido.lineas().stream().map(this::aDTO).toList(),
 				pedido.total().valor(),
-				pedido.fechaCreacion());
+				pedido.fechaCreacion(),
+				pedido.estado().name(),
+				pedido.motivoCancelacion());
 	}
 
 	default LineaPedidoDTO aDTO(LineaPedido lineaPedido) {

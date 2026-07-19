@@ -1,23 +1,15 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: servicio-inventario
-  # El binder de RabbitMQ trae spring-boot-starter-webflux transitivo (cliente de RabbitMQ
-  # Streams, no usado aquí) — sin esto, Spring Boot arranca un servidor reactivo en el 8080
-  # por defecto, aunque este microservicio no expone ningún endpoint propio.
-  main:
-    web-application-type: none
-  kafka:
-    bootstrap-servers: localhost:9092
   cloud:
     function:
-      definition: productoCreadoConsumidor;pedidoCreadoConsumidor
+      definition: productoCreadoConsumidor
     stream:
       defaultBinder: rabbit
       bindings:
         productoCreadoConsumidor-in-0:
           destination: producto-creado
           group: servicio-inventario
-        pedidoCreadoConsumidor-in-0:
-          destination: pedido-creado
-          group: servicio-inventario
-          binder: kafka
